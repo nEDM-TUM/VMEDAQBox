@@ -22,9 +22,9 @@ class DeviceException : public std::exception
 
 //_____________________________________________________________________________
 TUniverseCDAQBox::TUniverseCDAQBox() :
-	CDAQBoxLib(),
-	m_VMEDev(0),
-       	m_ControlDevice(0)
+    CDAQBoxLib(),
+    m_VMEDev(0),
+           m_ControlDevice(0)
 {
   // Map the whole A24 space to this device.  If it can't be opened, throw an
   // exception.
@@ -43,11 +43,13 @@ DWORD TUniverseCDAQBox::CallSysReset()
 {
   // Call Sys Reset on VME Bus
   uint32_t readDev;
-  if ( sizeof(readDev) != m_ControlDevice->Read((char*)&readDev, sizeof(readDev), 0x404 ) ) {
+  if ( sizeof(readDev) != 
+        m_ControlDevice->Read((char*)&readDev, sizeof(readDev), 0x404 ) ) {
     return ES_DeviceDriver;
   }
   readDev |= 0x404000;
-  if ( sizeof(readDev) != m_ControlDevice->Write((char*)&readDev, sizeof(readDev), 0x404 ) ) {
+  if ( sizeof(readDev) != 
+        m_ControlDevice->Write((char*)&readDev, sizeof(readDev), 0x404 ) ) {
     return ES_DeviceDriver;
   }
   return EC_OK;
@@ -87,7 +89,7 @@ DWORD TUniverseCDAQBox::Reset()
 
 //_____________________________________________________________________________
 DWORD TUniverseCDAQBox::TranslateAddress( DWORD SubModuleAddr,
-		DWORD offset) const
+        DWORD offset) const
 {
   // Translate from 'DAQBox' space to VME space.
   return  m_BaseAddress + ((SubModuleAddr + offset) << DL710_Shift);
@@ -95,9 +97,9 @@ DWORD TUniverseCDAQBox::TranslateAddress( DWORD SubModuleAddr,
 
 //_____________________________________________________________________________
 DWORD TUniverseCDAQBox::ReadDWordSubModule(
-		const WORD SubModuleAddr,
-		const WORD offset,
-		DWORD *pData )
+        const WORD SubModuleAddr,
+        const WORD offset,
+        DWORD *pData )
 {
   // Read Sub-module at offset
   uint32_t address = TranslateAddress(SubModuleAddr, offset);
@@ -110,9 +112,9 @@ DWORD TUniverseCDAQBox::ReadDWordSubModule(
 
 //_____________________________________________________________________________
 DWORD TUniverseCDAQBox::WriteDWordSubModule(
-		const WORD SubModuleAddr,
-		const WORD offset,
-		DWORD pData )
+        const WORD SubModuleAddr,
+        const WORD offset,
+        DWORD pData )
 {
   // Write Sub-module at offset
   uint32_t address = TranslateAddress(SubModuleAddr, offset);
@@ -125,10 +127,10 @@ DWORD TUniverseCDAQBox::WriteDWordSubModule(
 
 //_____________________________________________________________________________
 DWORD TUniverseCDAQBox::DMAReadDWordSubModule(
-		const WORD SubModuleAddr,
-		const WORD offset,
-                const DWORD ReqNoOfDWords,
-		DWORD *pData )
+        const WORD SubModuleAddr,
+        const WORD offset,
+        const DWORD ReqNoOfDWords,
+        DWORD *pData )
 {
   // DMA read
   // Sub-module at offset
@@ -136,20 +138,24 @@ DWORD TUniverseCDAQBox::DMAReadDWordSubModule(
   // is polled ReqNoOfDWords times.
   //
   uint32_t address = TranslateAddress(SubModuleAddr, offset);
-  TUVMEDevice* dev = get_dma_device(address, DL710_AddressMod, DL710_DataSize, false);
+
+  // Grab a DMA device
+  TUVMEDevice* dev = 
+    get_dma_device(address, DL710_AddressMod, DL710_DataSize, false);
   if (!dev) return ES_DeviceDriver;
-  int32_t retVal = dev->Read((char*)pData, (uint32_t)ReqNoOfDWords*DL710_DataSize, 0x0)/DL710_DataSize;
+  int32_t retVal = dev->Read((char*)pData,
+                             (uint32_t)ReqNoOfDWords*DL710_DataSize,
+                             0x0)/DL710_DataSize;
+  // Be sure to release it back.
   release_dma_device();
-  if ((uint32_t)retVal != ReqNoOfDWords) {
-    return ES_DeviceDriver;
-  }
-  return EC_OK;
+
+  return ((uint32_t)retVal != ReqNoOfDWords) ? ES_DeviceDriver : EC_OK;
 }
 
 //_____________________________________________________________________________
 bool TUniverseCDAQBox::GetClassAndMethod(
-		const DWORD MethodId,
-		std::string *pClassAndMethodName )
+        const DWORD MethodId,
+        std::string *pClassAndMethodName )
 {
   // For remote calls
   if (!pClassAndMethodName) return false;
