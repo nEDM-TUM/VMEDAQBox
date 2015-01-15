@@ -27,6 +27,9 @@ class TUniverseCDAQBox : public CDAQBoxLib
 
 	virtual bool GetClassAndMethod( const DWORD MethodId, std::string *pClassAndMethodName );
 
+  protected:
+	DWORD CallSysReset();
+
   private:
     TUVMEDevice *m_VMEDev;
     TUVMEDevice *m_ControlDevice;
