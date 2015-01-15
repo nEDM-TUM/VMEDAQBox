@@ -7,10 +7,10 @@ const int32_t DL710_DataSize = 4;
 const int32_t DL710_Shift = 4;
 const uint32_t DL710_AddressMod = 0x39;
 
-#define CallParentFunction(func) \
-  DWORD retVal = CDAQBox::func();\
-  if (retVal != EC_OK) return retVal;
-
+/*
+ *
+ * Thrown exception when VME devices are not available.
+ * */
 class DeviceException : public std::exception
 {
   public:
@@ -18,24 +18,30 @@ class DeviceException : public std::exception
     {
       return "VME device is unavailable";
     }
-} loc1_Exception;
+} loc_Exception;
 
-TUniverseCDAQBox::TUniverseCDAQBox() : CDAQBoxLib(), m_VMEDev(0), m_ControlDevice(0)
+//_____________________________________________________________________________
+TUniverseCDAQBox::TUniverseCDAQBox() :
+	CDAQBoxLib(),
+	m_VMEDev(0),
+       	m_ControlDevice(0)
 {
   // Map the whole A24 space to this device.  If it can't be opened, throw an
-  // exception. 
+  // exception.
   m_VMEDev = get_new_device(0x0,             // Base VME address
-                            DL710_AddressMod,// DL710 supports only A24, D32  
-                            DL710_DataSize,  // DL710 supports only A24, D32  
-                            0x0   // Gets maximum sized image 
+                            DL710_AddressMod,// DL710 supports only A24, D32
+                            DL710_DataSize,  // DL710 supports only A24, D32
+                            0x0   // Gets maximum sized image
                             );
-  if (!m_VMEDev) throw loc1_Exception;
+  if (!m_VMEDev) throw loc_Exception;
   m_ControlDevice = get_ctl_device();
-  if (!m_ControlDevice) throw loc1_Exception;
+  if (!m_ControlDevice) throw loc_Exception;
 }
 
+//_____________________________________________________________________________
 DWORD TUniverseCDAQBox::CallSysReset()
 {
+  // Call Sys Reset on VME Bus
   uint32_t readDev;
   if ( sizeof(readDev) != m_ControlDevice->Read((char*)&readDev, sizeof(readDev), 0x404 ) ) {
     return ES_DeviceDriver;
@@ -47,74 +53,109 @@ DWORD TUniverseCDAQBox::CallSysReset()
   return EC_OK;
 }
 
+//_____________________________________________________________________________
 TUniverseCDAQBox::~TUniverseCDAQBox()
 {
-  Close(); 
+  // Close on destructor
+  Close();
 }
 
+//_____________________________________________________________________________
 DWORD TUniverseCDAQBox::Init(DWORD vmeBaseAddress)
 {
-  m_BaseAddress = vmeBaseAddress; 
+  // Initialize, this just merely sets the VME base address.
+  m_BaseAddress = vmeBaseAddress;
   return EC_OK;
 }
 
+//_____________________________________________________________________________
 DWORD TUniverseCDAQBox::Close()
 {
   // Close the VME device if it's open.
-  //CallParentFunction(Close)
   if (m_VMEDev) close_device(m_VMEDev);
   m_VMEDev = 0;
   return EC_OK;
 }
 
+//_____________________________________________________________________________
 DWORD TUniverseCDAQBox::Reset()
 {
-  //CallParentFunction(Reset)
+  // Reset the module
   return WriteDWordSubModule(0xa, 0x0, 1);
 }
 
-	// communication with the remote station of the interface
 
-DWORD TUniverseCDAQBox::ReadDWordSubModule( const WORD SubModuleAddr, const WORD offset, DWORD *pData )
+//_____________________________________________________________________________
+DWORD TUniverseCDAQBox::TranslateAddress( DWORD SubModuleAddr,
+		DWORD offset) const
 {
-  uint32_t address = m_BaseAddress + ((SubModuleAddr + offset) << DL710_Shift);
-  if (!m_VMEDev || 
-       m_VMEDev->Read((char*)pData, DL710_DataSize, address) != DL710_DataSize) { 
-    return ES_DeviceDriver; 
+  // Translate from 'DAQBox' space to VME space.
+  return  m_BaseAddress + ((SubModuleAddr + offset) << DL710_Shift);
+}
+
+//_____________________________________________________________________________
+DWORD TUniverseCDAQBox::ReadDWordSubModule(
+		const WORD SubModuleAddr,
+		const WORD offset,
+		DWORD *pData )
+{
+  // Read Sub-module at offset
+  uint32_t address = TranslateAddress(SubModuleAddr, offset);
+  if (!m_VMEDev ||
+       m_VMEDev->Read((char*)pData, DL710_DataSize, address) != DL710_DataSize) {
+    return ES_DeviceDriver;
   }
   return EC_OK;
 }
 
-DWORD TUniverseCDAQBox::WriteDWordSubModule( const WORD SubModuleAddr, const WORD offset, DWORD pData )
+//_____________________________________________________________________________
+DWORD TUniverseCDAQBox::WriteDWordSubModule(
+		const WORD SubModuleAddr,
+		const WORD offset,
+		DWORD pData )
 {
-  uint32_t address = m_BaseAddress + ((SubModuleAddr + offset) << DL710_Shift);
-  if (!m_VMEDev || 
-       m_VMEDev->Write((char*)&pData, DL710_DataSize, address) != DL710_DataSize) { 
-    return ES_DeviceDriver; 
+  // Write Sub-module at offset
+  uint32_t address = TranslateAddress(SubModuleAddr, offset);
+  if (!m_VMEDev ||
+       m_VMEDev->Write((char*)&pData, DL710_DataSize, address) != DL710_DataSize) {
+    return ES_DeviceDriver;
   }
   return EC_OK;
 }
 
-DWORD TUniverseCDAQBox::DMAReadDWordSubModule( const WORD SubModuleAddr, const WORD offset, 
-                             const DWORD ReqNoOfDWords, DWORD *pData )
+//_____________________________________________________________________________
+DWORD TUniverseCDAQBox::DMAReadDWordSubModule(
+		const WORD SubModuleAddr,
+		const WORD offset,
+                const DWORD ReqNoOfDWords,
+		DWORD *pData )
 {
   // DMA read
-  uint32_t address = m_BaseAddress + ((SubModuleAddr + offset) << DL710_Shift);
-  TUVMEDevice* dev = get_dma_device(0x0, DL710_AddressMod, DL710_DataSize, false);
+  // Sub-module at offset
+  // ** Note ** this is a non-incrementing read!  That means, the same address
+  // is polled ReqNoOfDWords times.
+  //
+  uint32_t address = TranslateAddress(SubModuleAddr, offset);
+  TUVMEDevice* dev = get_dma_device(address, DL710_AddressMod, DL710_DataSize, false);
   if (!dev) return ES_DeviceDriver;
-  int32_t retVal = dev->Read((char*)pData, (uint32_t)ReqNoOfDWords*DL710_DataSize, address)/DL710_DataSize;
+  int32_t retVal = dev->Read((char*)pData, (uint32_t)ReqNoOfDWords*DL710_DataSize, 0x0)/DL710_DataSize;
   release_dma_device();
   if ((uint32_t)retVal != ReqNoOfDWords) {
     return ES_DeviceDriver;
   }
-  return EC_OK; 
+  return EC_OK;
 }
 
-bool TUniverseCDAQBox::GetClassAndMethod( const DWORD MethodId, std::string *pClassAndMethodName )
+//_____________________________________________________________________________
+bool TUniverseCDAQBox::GetClassAndMethod(
+		const DWORD MethodId,
+		std::string *pClassAndMethodName )
 {
+  // For remote calls
   if (!pClassAndMethodName) return false;
   *pClassAndMethodName = "TUniverseCDAQBox::" + GetMethodName(MethodId);
   return true;
 }
+
 
 
