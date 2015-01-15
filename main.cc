@@ -17,9 +17,7 @@ int main()
 	cout << box.GetVersionOS() << endl << endl;
 
 	// init the USB interface of the DAQBox
-	DWORD time_out = 2000, error;
-	string serial_number = "BPDUSEC1JP";
-	cout << "0x" << hex << ( error = box.Init( serial_number, time_out ) ) << " : DAQBox Init" << endl;
+	cout << "0x" << hex << ( error = box.Init( 0x400000 ) ) << " : DAQBox Init" << endl;
 
         CFConfig conf = box.GetActualConfigurationOfFirmware();
         cout << "0x" << hex << box.ConfigureFirmware(conf) << endl;

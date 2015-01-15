@@ -14,7 +14,7 @@ class TUniverseCDAQBox : public CDAQBoxLib
 
 	// init/close/reset of the VME bus
 
-	virtual DWORD Init( const std::string i_SerialNumber, const DWORD i_WaitUSB=200 );
+	virtual DWORD Init( DWORD vmeBaseAdress );
 	virtual DWORD Close();
 	virtual DWORD Reset();
 
@@ -30,6 +30,7 @@ class TUniverseCDAQBox : public CDAQBoxLib
   private:
     TUVMEDevice *m_VMEDev;
     TUVMEDevice *m_ControlDevice;
+    DWORD        m_BaseAddress;
 
     // Disable copying
     TUniverseCDAQBox(const TUniverseCDAQBox&);

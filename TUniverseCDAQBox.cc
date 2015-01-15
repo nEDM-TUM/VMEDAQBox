@@ -23,7 +23,6 @@ TUniverseCDAQBox::TUniverseCDAQBox() : CDAQBoxLib(), m_VMEDev(0), m_ControlDevic
 {
   // Map the whole A24 space to this device.  If it can't be opened, throw an
   // exception. 
-  return;
   m_VMEDev = get_new_device(0x0,             // Base VME address
                             DL710_AddressMod,// DL710 supports only A24, D32  
                             DL710_DataSize,  // DL710 supports only A24, D32  
@@ -39,9 +38,9 @@ TUniverseCDAQBox::~TUniverseCDAQBox()
   Close(); 
 }
 
-DWORD TUniverseCDAQBox::Init(const std::string i_SB, const DWORD waitTime)
+DWORD TUniverseCDAQBox::Init(DWORD vmeBaseAddress)
 {
-  
+  m_BaseAddress = vmeBaseAddress; 
   return EC_OK;
 }
 
@@ -57,7 +56,6 @@ DWORD TUniverseCDAQBox::Close()
 DWORD TUniverseCDAQBox::Reset()
 {
   //CallParentFunction(Reset)
-  return EC_OK;
   uint32_t readDev;
   if ( sizeof(readDev) != m_ControlDevice->Read((char*)&readDev, sizeof(readDev), 0x404 ) ) {
     return ES_DeviceDriver;
@@ -74,9 +72,9 @@ DWORD TUniverseCDAQBox::Reset()
 
 DWORD TUniverseCDAQBox::ReadDWordSubModule( const WORD SubModuleAddr, const WORD offset, DWORD *pData )
 {
-  return EC_OK;
+  uint32_t address = m_BaseAddress + ((SubModuleAddr + offset) << 1);
   if (!m_VMEDev || 
-       m_VMEDev->Read((char*)pData, DL710_DataSize, (uint32_t) SubModuleAddr + offset) != DL710_DataSize) { 
+       m_VMEDev->Read((char*)pData, DL710_DataSize, address) != DL710_DataSize) { 
     return ES_DeviceDriver; 
   }
   return EC_OK;
@@ -84,9 +82,9 @@ DWORD TUniverseCDAQBox::ReadDWordSubModule( const WORD SubModuleAddr, const WORD
 
 DWORD TUniverseCDAQBox::WriteDWordSubModule( const WORD SubModuleAddr, const WORD offset, DWORD pData )
 {
-  return EC_OK;
+  uint32_t address = m_BaseAddress + ((SubModuleAddr + offset) << 1);
   if (!m_VMEDev || 
-       m_VMEDev->Write((char*)&pData, DL710_DataSize, (uint32_t) SubModuleAddr + offset) != DL710_DataSize) { 
+       m_VMEDev->Write((char*)&pData, DL710_DataSize, address) != DL710_DataSize) { 
     return ES_DeviceDriver; 
   }
   return EC_OK;
@@ -96,10 +94,10 @@ DWORD TUniverseCDAQBox::DMAReadDWordSubModule( const WORD SubModuleAddr, const W
                              const DWORD ReqNoOfDWords, DWORD *pData )
 {
   // DMA read
-  return EC_OK;
+  uint32_t address = m_BaseAddress + ((SubModuleAddr + offset) << 1);
   TUVMEDevice* dev = get_dma_device(0x0, DL710_AddressMod, DL710_DataSize, false);
   if (!dev) return ES_DeviceDriver;
-  int32_t retVal = dev->Read((char*)pData, (uint32_t)ReqNoOfDWords*DL710_DataSize, (uint32_t)SubModuleAddr + offset)/DL710_DataSize;
+  int32_t retVal = dev->Read((char*)pData, (uint32_t)ReqNoOfDWords*DL710_DataSize, address)/DL710_DataSize;
   if (retVal != ReqNoOfDWords) {
     return ES_DeviceDriver;
   }
