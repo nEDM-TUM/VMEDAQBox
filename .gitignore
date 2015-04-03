@@ -2,3 +2,8 @@
 main
 main1
 *~
+*/build*
+buildTools/config.mk
+autom4te.cache*
+config.log
+config.status
