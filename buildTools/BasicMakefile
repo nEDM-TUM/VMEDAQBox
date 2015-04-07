@@ -15,8 +15,10 @@ packageBase    := $(shell pwd)
 SOURCEDIR      := $(packageBase)
 BUILDDIR       := $(addprefix $(packageBase)/, build)
 LIBDIR         := $(addprefix $(packageBase)/, ../lib)
+EXEDIR         := $(addprefix $(packageBase)/, ../bin)
 packageName    := $(notdir $(packageBase))
 SHLIB          ?= $(LIBDIR)/lib$(packageName).$(SHREXT)
+BASEEXE        ?= $(EXEDIR)/$(packageName)
 INCLUDEFLAGS += $(DEFS) $(ROOT_INCLUDE) -I$(packageBase)
 LIBFLAGS += $(LDFLAGS) $(ROOT_LIBS) $(LIBS) 
 BUILDDIRCONF := $(BUILDDIR)/.build
@@ -60,7 +62,11 @@ MAKEOFILES = $(SILENT)$(START_TRAP); $(CXX) $(CXXFLAGS) $(INCLUDEFLAGS) -c -o $@
 .SECONDARY : $(BUILDDIRCONF) 
 .INTERMEDIATE: $(BUILDBEGIN)
 
+ifneq ($(MAKEEXE),)
+all: exe
+else
 all: lib
+endif
 
 lib: shared
 
@@ -78,6 +84,8 @@ endif
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPCCFILES)
 endif
+
+exe: $(BASEEXE)
 
 ##############################################################################
 # Dependencies
@@ -101,6 +109,12 @@ $(SHLIB): $(OBJECTS)
 	@echo "  [$(packageName)] Building library........... $(@F)"
 	$(SILENT)$(SOMAKER) $(SOFLAGS)$(@F) -Wl,-rpath,$(ORIGINFLAGS)\
          -o $(SHLIB) $^ $(LIBFLAGS)
+
+$(BASEEXE): $(OBJECTS)
+	$(SILENT)if [ ! -d $(EXEDIR) ]; then $(mkdir_p) $(EXEDIR); fi
+	@echo "    Build executable........... $(@F)"
+	$(SILENT)$(START_TRAP); $(SOMAKER)\
+	        $(LIBFLAGS) $^ -o $@; $(END_TRAP)
 
 clean:
 	@echo "  [$(packageName)] Cleaning"

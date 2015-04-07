@@ -1,4 +1,4 @@
-SRCDIRS =  Cascade CascadePython 
+SRCDIRS =  Cascade
 
 .PHONY: all clean 
 

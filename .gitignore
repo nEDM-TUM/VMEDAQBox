@@ -1,6 +1,3 @@
-*.o
-main
-main1
 *~
 */build*
 buildTools/config.mk
