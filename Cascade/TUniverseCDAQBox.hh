@@ -39,8 +39,8 @@ class TUniverseCDAQBox : public CDAQBoxLib
      
 	// Unfortunately, these were made virtual and are *hidden* in the
 	// inheritance tree.  We explicitly *do not* implement them here.
-	DWORD Init( const std::string, const DWORD );
-	DWORD Init( CBusLib *, const DWORD );
+	DWORD Init( const std::string, const DWORD ) { return 0; }
+	DWORD Init( CBusLib *, const DWORD ) { return 0; }
 
     // Disable copying
     TUniverseCDAQBox(const TUniverseCDAQBox&);

@@ -113,8 +113,7 @@ $(SHLIB): $(OBJECTS)
 $(BASEEXE): $(OBJECTS)
 	$(SILENT)if [ ! -d $(EXEDIR) ]; then $(mkdir_p) $(EXEDIR); fi
 	@echo "    Build executable........... $(@F)"
-	$(SILENT)$(START_TRAP); $(SOMAKER)\
-	        $(LIBFLAGS) $^ -o $@; $(END_TRAP)
+	$(SILENT)$(START_TRAP); $(CXX) -o $@ $^ $(LIBFLAGS); $(END_TRAP)
 
 clean:
 	@echo "  [$(packageName)] Cleaning"

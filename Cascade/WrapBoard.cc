@@ -1,4 +1,3 @@
-#include "DefineStruct.hh"
 #include <boost/fusion/include/adapt_struct.hpp>
 #include "MBoardLib.h" 
 
@@ -50,11 +49,3 @@ BOOST_FUSION_ADAPT_STRUCT(
    //(std::ofstream *pListModeFile)
    (bool, bListModeFileBinary)
 )
-
-void define_board()
-{
-  define_struct<HSetup>("h_setup");
-  define_struct<ChannelList>("channel_list");
-  define_struct<MConfig>("m_config");
-  ToPython<ChannelArray>();
-};

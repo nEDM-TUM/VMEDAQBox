@@ -1,9 +1,8 @@
 #ifndef StructConversion_hh_
 #define StructConversion_hh_
-#include <boost/python.hpp>
-#include <boost/python/dict.hpp>
-#include <boost/python/str.hpp>
-#include <boost/python/list.hpp>
+#include <vector>
+#include <map>
+#include <boost/any.hpp>
 #include <boost/mpl/range_c.hpp>
 #include <boost/fusion/include/for_each.hpp>
 #include <boost/fusion/include/zip.hpp>
@@ -14,10 +13,13 @@
 
 namespace fusion = boost::fusion;
 namespace mpl=boost::mpl;
-using boost::python::object;
+using boost::any;
+
+typedef std::map<std::string, boost::any> map_type;
+typedef std::vector<boost::any> list_type;
 
 template<typename Zip, typename Seq>
-struct ZipTypes
+struct SeqTypes
 {
     typedef typename boost::remove_const<
                     typename boost::remove_reference<
@@ -29,11 +31,17 @@ struct ZipTypes
                     typename boost::remove_reference<
                         typename fusion::result_of::at_c<Zip, 1>::type >::type
                     >::type EditValue;
+};
 
+template<typename Zip, typename Seq>
+struct ZipTypes
+{
+    typedef SeqTypes<Zip, Seq> _st;
     static std::string field_name()
     {
-      return fusion::extension::struct_member_name<Seq,Index::value>::call();
+      return fusion::extension::struct_member_name<Seq,_st::Index::value>::call();
     }
+
 };
 
 template <typename Struct, typename F>
@@ -52,36 +60,23 @@ template<typename T>
 struct BaseType
 {
   typedef BaseType<T> type;
-  static void decode(const object& from, T& to)
+  static void decode(const any& from, T& to)
   {
-    to = boost::python::extract<T>(from);
+    to = boost::any_cast<T>(from);
   }
 };
-
-template<>
-struct BaseType<std::string*>
-{
-  typedef BaseType<std::string*> type;
-  static void decode(const object& from, std::string*& to)
-  {
-    if (to) {
-      *to = boost::python::extract<char const*>(from);
-    }
-  }
-};
-
-
 
 template<typename T>
 struct ArrayType
 {
   typedef ArrayType<T> type;
   typedef typename boost::remove_bounds<T>::type slice_t;
-  static void decode(const object& from, T& to)
+  static void decode(const any& from, T& to)
   {
     static const size_t size = sizeof(T)/sizeof(slice_t);
+    const T& from_cast = boost::any_cast<const T&>(from);
     for(size_t i=0;i<size;i++) {
-      DecAll<slice_t>::decode(from[i], to[i]);
+      DecAll<slice_t>::decode(from_cast[i], to[i]);
     }
   }
 };
@@ -92,7 +87,7 @@ struct DictType
   typedef DictType<Struct> type;
   struct FromDictConvertor
   {
-      FromDictConvertor(boost::python::dict& adict) : _d(adict) {}
+      FromDictConvertor(map_type& adict) : _d(adict) {}
 
       template <typename Zip >
       void operator() (const Zip& v) const
@@ -103,11 +98,11 @@ struct DictType
           T2& val_to_edit = const_cast<T2&>(fusion::at_c<1>(v));
           DecAll<T2>::decode(_d[zt::field_name()], val_to_edit);
       }
-      boost::python::dict& _d;
+      map_type& _d;
   };
-  static void decode(const object& from, Struct& to)
+  static void decode(const any& from, Struct& to)
   {
-      boost::python::dict o = boost::python::extract<boost::python::dict>(from);
+      map_type o = boost::any_cast<map_type>(from);
       ForEach(to, FromDictConvertor(o));
   }
 };
@@ -139,20 +134,9 @@ template<typename T>
 struct EncodeBaseType
 {
   typedef EncodeBaseType<T> type;
-  static object encode(const T& from)
+  static any encode(const T& from)
   {
-    return object(from);
-  }
-};
-
-template<>
-struct EncodeBaseType<std::string*>
-{
-  typedef EncodeBaseType<std::string*> type;
-  static object encode(std::string* const& from)
-  {
-    if (!from) return boost::python::str(); 
-    return boost::python::str(from->c_str());
+    return any(from);
   }
 };
 
@@ -162,12 +146,12 @@ struct EncodeArrayType
 {
   typedef EncodeArrayType<T> type;
   typedef typename boost::remove_bounds<T>::type slice_t;
-  static object encode(const T& from)
+  static any encode(const T& from)
   {
     static const size_t size = sizeof(T)/sizeof(slice_t);
-    boost::python::list newList;
+    list_type newList;
     for(size_t i=0;i<size;i++) {
-      newList.append(EncAll<slice_t>::encode(from[i]));
+      newList.push_back(EncAll<slice_t>::encode(from[i]));
     }
     return newList;
   }
@@ -180,18 +164,18 @@ struct EncodeDictType
   typedef EncodeDictType<Struct> type;
   struct ToDictConvertor
   {
-      ToDictConvertor(boost::python::dict& adict) : _d(adict) {}
+      ToDictConvertor(map_type& adict) : _d(adict) {}
 
       template <typename Zip >
       void operator() (const Zip& v) const
       {
           _d[ZipTypes<Zip,Struct>::field_name()] = fusion::at_c<1>(v);
       }
-      boost::python::dict& _d;
+      map_type& _d;
   };
-  static object encode(const Struct& from)
+  static any encode(const Struct& from)
   {
-      boost::python::dict newDict;
+      map_type newDict;
       ForEach(from, ToDictConvertor(newDict));
       return newDict;
   }
@@ -219,19 +203,15 @@ template <typename T> struct EncAll : public EncAll_s<T>::type { };
 // Convert to python 
 //___________________________________________________________
 template<typename T>
-struct ToPython
+struct ToPack
 {
-    ToPython()
+    ToPack()
     {
-      boost::python::to_python_converter<T, ToPython<T> >();
+      //boost::python::to_python_converter<T, ToPack<T> >();
     }
-    static object convertObj(const T& s)
+    static any convertObj(const T& s)
     {
         return EncAll<T>::encode(s);
-    }
-    static PyObject* convert(const T& s)
-    {
-      return boost::python::incref(convertObj(s).ptr());
     }
 };
 
@@ -239,39 +219,23 @@ struct ToPython
 // Convert a python dictionary to a particular struct
 //___________________________________________________________
 template<class Struct>
-struct FromPython
+struct FromPack
 {
-  FromPython ()
+  FromPack ()
   {
-    boost::python::converter::registry::push_back(
-          &convertible,
-          &construct,
-          boost::python::type_id<Struct>());
-  }
-  static void* convertible(PyObject* obj_ptr)
-  {
-    boost::python::extract<boost::python::dict> x(obj_ptr);
-    if (!x.check()) return 0;
-    return obj_ptr;
+    //boost::python::converter::registry::push_back(
+    //      &convertible,
+    //      &construct,
+    //      boost::python::type_id<Struct>());
   }
 
   // Convert dict into a Struct
   static void construct(
-    PyObject* obj_ptr,
-    boost::python::converter::rvalue_from_python_stage1_data* data)
+    const any& obj,
+    Struct& data)
     {
-      boost::python::dict o = boost::python::extract<boost::python::dict>(obj_ptr);
-      // Grab pointer to memory into which to construct the new Struct
-      void* storage = (
-        (boost::python::converter::rvalue_from_python_storage<Struct>*)
-        data)->storage.bytes;
-
-      Struct* avar = new (storage) Struct();
-
-      DecAll<Struct>::decode(o, *avar);
-
-      // Stash the memory chunk pointer for later use by boost.python
-      data->convertible = storage;
+      map_type& o = boost::any_cast<map_type&>(obj);
+      DecAll<Struct>::decode(o, data);
     }
 };
 
