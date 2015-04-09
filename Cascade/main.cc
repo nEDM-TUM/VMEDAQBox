@@ -2,6 +2,7 @@
 #include "TUniverseCDAQBox.hh"
 #include "BuildLambdaFunction.hh"
 #include "WrapDAQBox.hh"
+#include "Configuration.hh"
 #include "universe_api.h"
 #include <map>
 #include "autobahn/autobahn.hpp"
@@ -59,8 +60,7 @@ int main()
       // create a WAMP session that talks over TCP
       //
       bool debug = false;
-      autobahn::session<tcp::socket,
-                        tcp::socket> session(io, socket, socket, debug);
+      cascade::session_type session(io, socket, socket, debug);
 
       // make sure the future returned from the session joining a realm (see below)
       // does not run out of scope (being destructed prematurely ..)
@@ -93,7 +93,7 @@ int main()
 
                   // REGISTER a procedure for remote calling
                   //
-	          define_daqbox_interface(box, session);
+		  cascade::define_daqbox_interface(box, session);
                });
 
             } else {

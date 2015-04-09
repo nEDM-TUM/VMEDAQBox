@@ -2,6 +2,7 @@
 #define StructConversion_hh_
 #include <vector>
 #include <map>
+#include <iostream>
 #include <boost/any.hpp>
 #include <boost/mpl/range_c.hpp>
 #include <boost/fusion/include/for_each.hpp>
@@ -11,12 +12,64 @@
 #include <boost/type_traits/is_array.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 
+
+namespace cascade {
+
+  class interpret_error: public std::runtime_error
+  {
+    public:
+      interpret_error(const std::string& msg) : std::runtime_error(msg) {}
+  };
+
+
+namespace detail{
+
+typedef std::function< boost::any( boost::any ) > convert_type;
+typedef std::vector< boost::any > anyvec;
+typedef std::map< std::string, convert_type > convert_map;
+typedef std::map< std::pair<std::string, std::string>, convert_type > from_convert_map;
+
+extern from_convert_map gFromWebConversionMap;
+extern convert_map gToWebConversionMap;
+
+template<typename From, typename To>
+struct RegisterToWebConversion {
+  static void Execute()
+  {
+    std::string to_str = typeid(From).name();
+    if (gToWebConversionMap.find(to_str) != gToWebConversionMap.end()) {
+      std::cerr << "Overwriting conversion for: " << to_str << std::endl;
+    }
+    gToWebConversionMap[to_str] = [] ( boost::any a ) {
+      return boost::any(static_cast<To>(boost::any_cast<From>(a)));
+    };
+  }
+};
+
+template<typename From, typename To>
+struct RegisterFromWebConversion {
+  static void Execute()
+  {
+    auto pr = std::make_pair<std::string, std::string>(typeid(From).name(), typeid(To).name());
+    std::string from_str = typeid(From).name();
+    if (gFromWebConversionMap.find(pr) != gFromWebConversionMap.end()) {
+      std::cerr << "Overwriting conversion for: " << from_str << std::endl;
+    }
+    gFromWebConversionMap[pr] = [] ( boost::any a ) {
+      return boost::any(static_cast<To>(boost::any_cast<From>(a)));
+    };
+  }
+};
+
+boost::any ConvertFromWeb(const boost::any& a, const std::type_info& id);
+boost::any ConvertToWeb(const boost::any& a);
+}
+
 namespace fusion = boost::fusion;
 namespace mpl=boost::mpl;
 using boost::any;
 
 typedef std::map<std::string, boost::any> map_type;
-typedef std::vector<boost::any> list_type;
 
 template<typename Zip, typename Seq>
 struct SeqTypes
@@ -37,6 +90,7 @@ template<typename Zip, typename Seq>
 struct ZipTypes
 {
     typedef SeqTypes<Zip, Seq> _st;
+    typedef typename _st::EditValue EditValue;
     static std::string field_name()
     {
       return fusion::extension::struct_member_name<Seq,_st::Index::value>::call();
@@ -62,7 +116,7 @@ struct BaseType
   typedef BaseType<T> type;
   static void decode(const any& from, T& to)
   {
-    to = boost::any_cast<T>(from);
+    to = boost::any_cast<T>(detail::ConvertFromWeb(from, typeid(T)));
   }
 };
 
@@ -74,7 +128,8 @@ struct ArrayType
   static void decode(const any& from, T& to)
   {
     static const size_t size = sizeof(T)/sizeof(slice_t);
-    const T& from_cast = boost::any_cast<const T&>(from);
+    const detail::anyvec& from_cast = boost::any_cast<const detail::anyvec&>(from);
+    if (from_cast.size() != size) throw interpret_error("Array lengths don't match");
     for(size_t i=0;i<size;i++) {
       DecAll<slice_t>::decode(from_cast[i], to[i]);
     }
@@ -136,7 +191,7 @@ struct EncodeBaseType
   typedef EncodeBaseType<T> type;
   static any encode(const T& from)
   {
-    return any(from);
+    return detail::ConvertToWeb(any(from));
   }
 };
 
@@ -149,7 +204,7 @@ struct EncodeArrayType
   static any encode(const T& from)
   {
     static const size_t size = sizeof(T)/sizeof(slice_t);
-    list_type newList;
+    detail::anyvec newList;
     for(size_t i=0;i<size;i++) {
       newList.push_back(EncAll<slice_t>::encode(from[i]));
     }
@@ -169,7 +224,9 @@ struct EncodeDictType
       template <typename Zip >
       void operator() (const Zip& v) const
       {
-          _d[ZipTypes<Zip,Struct>::field_name()] = fusion::at_c<1>(v);
+
+          typedef typename ZipTypes<Zip,Struct>::EditValue T;
+          _d[ZipTypes<Zip,Struct>::field_name()] = EncAll<T>::encode(fusion::at_c<1>(v));
       }
       map_type& _d;
   };
@@ -196,47 +253,5 @@ template <typename T> struct EncAll_s {
 };
 
 template <typename T> struct EncAll : public EncAll_s<T>::type { };
-//___________________________________________________________
-
-
-//___________________________________________________________
-// Convert to python 
-//___________________________________________________________
-template<typename T>
-struct ToPack
-{
-    ToPack()
-    {
-      //boost::python::to_python_converter<T, ToPack<T> >();
-    }
-    static any convertObj(const T& s)
-    {
-        return EncAll<T>::encode(s);
-    }
-};
-
-//___________________________________________________________
-// Convert a python dictionary to a particular struct
-//___________________________________________________________
-template<class Struct>
-struct FromPack
-{
-  FromPack ()
-  {
-    //boost::python::converter::registry::push_back(
-    //      &convertible,
-    //      &construct,
-    //      boost::python::type_id<Struct>());
-  }
-
-  // Convert dict into a Struct
-  static void construct(
-    const any& obj,
-    Struct& data)
-    {
-      map_type& o = boost::any_cast<map_type&>(obj);
-      DecAll<Struct>::decode(o, data);
-    }
-};
-
+}
 #endif

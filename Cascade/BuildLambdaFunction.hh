@@ -11,13 +11,7 @@
 
 namespace cascade {
 
-  class interpret_error: public std::runtime_error
-  {
-    public:
-      interpret_error(const std::string& msg) : std::runtime_error(msg) {}
-  };
-
-namespace details {
+namespace detail {
 
 typedef autobahn::anyvec anyvec;
 typedef autobahn::anymap anymap;
@@ -57,34 +51,34 @@ struct BuildTuple
         typedef typename zt::EditValue T2;
 
         T2& val_to_edit = const_cast<T2&>(fusion::at_c<1>(v));
-        DecAll<T2>::decode(boost::any_cast<T2>(_v[zt::Index::value]), val_to_edit);
+        DecAll<T2>::decode(_v[zt::Index::value], val_to_edit);
     }
     const anyvec& _v;
 };
 
 }
 
-template<typename F, typename G = details::GenFunction<F> >
-std::function<any(const details::anyvec&, const details::anymap&)>  GenFunction(F func)
+template<typename F, typename G = detail::GenFunction<F> >
+std::function<any(const detail::anyvec&, const detail::anymap&)>  GenFunction(F func)
 {
-    //typedef details::GenFunction<F> gen_func;
+    //typedef detail::GenFunction<F> gen_func;
     typedef typename G::tuple_type    tuple_type;
     typedef typename G::return_type   return_type;
-    return [=] (const details::anyvec& args, const details::anymap& kw) {
+    return [=] (const detail::anyvec& args, const detail::anymap& kw) {
       if (args.size() != G::arity) throw interpret_error("Number of arguments is incorrect"); 
       if (kw.size() != 0) throw interpret_error("Keyword arguments not accepted");
       // Build the tuple
       tuple_type t;
-      ForEach(t, details::BuildTuple<tuple_type>(args)); 
+      ForEach(t, detail::BuildTuple<tuple_type>(args));
       return EncAll<return_type>::encode(boost::fusion::invoke(func, t));
     }; 
 }
 
 template<class Class, typename F, typename ...Args>
-std::function<any(const details::anyvec&, const details::anymap&)> GenFunction(Class& c, F func, Args ... args)
+std::function<any(const detail::anyvec&, const detail::anymap&)> GenFunction(Class& c, F func, Args ... args)
 {
   auto fn = boost::bind(func, &c, args...);
-  return GenFunction<decltype(fn), details::GenFunction<F> >(fn);
+  return GenFunction<decltype(fn), detail::GenFunction<F> >(fn);
 }
 
 }
