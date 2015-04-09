@@ -1,5 +1,5 @@
-#ifndef _Configuration_hh
-#define _Configuration_hh
+#ifndef _Configuration_hh_
+#define _Configuration_hh_
 #include "autobahn/autobahn.hpp"
 #include <boost/asio.hpp>
 

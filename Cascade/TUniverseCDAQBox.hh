@@ -1,5 +1,5 @@
-#ifndef TUniverseCDAQBox_hh
-#define TUniverseCDAQBox_hh
+#ifndef _TUniverseCDAQBox_hh_
+#define _TUniverseCDAQBox_hh_
 
 #include "DAQBoxLib.h"
 

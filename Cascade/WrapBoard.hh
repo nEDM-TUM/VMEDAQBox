@@ -1,3 +1,5 @@
+#ifndef _WrapBoard_hh_
+#define _WrapBoard_hh_
 #include <boost/fusion/include/adapt_struct.hpp>
 #include "MBoardLib.h" 
 
@@ -49,3 +51,4 @@ BOOST_FUSION_ADAPT_STRUCT(
    //(std::ofstream *pListModeFile)
    (bool, bListModeFileBinary)
 )
+#endif

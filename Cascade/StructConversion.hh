@@ -1,5 +1,5 @@
-#ifndef StructConversion_hh_
-#define StructConversion_hh_
+#ifndef _StructConversion_hh_
+#define _StructConversion_hh_
 #include <vector>
 #include <map>
 #include <iostream>

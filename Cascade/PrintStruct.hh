@@ -1,5 +1,5 @@
-#ifndef PrintStruct_hh
-#define PrintStruct_hh
+#ifndef _PrintStruct_hh_
+#define _PrintStruct_hh_
 
 #include "StructConversion.hh"
 

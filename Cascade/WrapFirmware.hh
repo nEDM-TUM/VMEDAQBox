@@ -1,3 +1,5 @@
+#ifndef _WrapFirmware_hh_
+#define _WrapFirmware_hh_
 #include <boost/fusion/include/adapt_struct.hpp>
 #include "CFirmwareLib.h" 
 #include <iostream>
@@ -100,4 +102,4 @@ BOOST_FUSION_ADAPT_STRUCT(
   (DWORD, dwHBDataLostCounter)
 )
 
-
+#endif
