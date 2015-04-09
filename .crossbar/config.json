@@ -51,6 +51,28 @@
          ]
       },
       {
+         "type": "container",
+         "options": {
+             "pythonpath" : ["../CascadePython"]
+         },
+         "components": [
+            {
+               "type": "class",
+               "classname": "server.server.ServerSession",
+               "realm": "realm1",
+               "transport": {
+                  "type": "websocket",
+                  "endpoint": {
+                     "type": "tcp",
+                     "host": "127.0.0.1",
+                     "port": 8080
+                  },
+                  "url": "ws://127.0.0.1:8080/ws"
+               }
+            }
+         ]
+      },
+      {
          "type": "guest",
          "executable": "../bin/Cascade",
          "arguments": []
