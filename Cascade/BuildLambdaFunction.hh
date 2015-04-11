@@ -16,28 +16,49 @@ namespace detail {
 typedef autobahn::anyvec anyvec;
 typedef autobahn::anymap anymap;
 template<class F>
-struct GenFunction;
+struct function_traits_impl;
 
+// Handle function pointers
 template<class R, class... Args>
-struct GenFunction<R(*)(Args...)> : public GenFunction<R(Args...)>
+struct function_traits_impl<R(*)(Args...)> : function_traits_impl<R(Args...)>
 {};
 
+// Handle member pointers
 template<class C, class R, class... Args>
-struct GenFunction<R(C::*)(Args...)> : public GenFunction<R(Args...)>
+struct function_traits_impl<R(C::*)(Args...)> : function_traits_impl<R(Args...)>
 {};
 
+// Handle functions
+template<class T>
+struct function_traits_impl< std::function<T> > : function_traits_impl<T>
+{};
+
+
+// Handle const member pointers
 template<class C, class R, class... Args>
-struct GenFunction<R(C::*)(Args...) const> : public GenFunction<R(Args...)>
+struct function_traits_impl<R(C::*)(Args...) const> : function_traits_impl<R(Args...)>
 {};
-
 
 template<class Function, class... Args>
-struct GenFunction<Function(Args...)> {
+struct function_traits_impl<Function(Args...)> {
   typedef Function return_type;
   typedef typename boost::tuple<Args...> tuple_type;
   static constexpr std::size_t arity = sizeof...(Args);
 
 };
+
+template<class Function, bool is_class>
+struct function_traits_test : function_traits_impl<Function>
+{};
+
+template <class F>
+struct function_traits_test<F, true> : function_traits_impl<decltype(&F::operator())>
+{};
+
+template<class F>
+struct function_traits : function_traits_test<F, std::is_class<F>::value>
+{};
+
 
 template<typename T>
 struct BuildTuple
@@ -58,27 +79,27 @@ struct BuildTuple
 
 }
 
-template<typename F, typename G = detail::GenFunction<F> >
+template<typename F, typename G = detail::function_traits<F> >
 std::function<any(const detail::anyvec&, const detail::anymap&)>  GenFunction(F func)
 {
     //typedef detail::GenFunction<F> gen_func;
     typedef typename G::tuple_type    tuple_type;
     typedef typename G::return_type   return_type;
     return [=] (const detail::anyvec& args, const detail::anymap& kw) {
-      if (args.size() != G::arity) throw interpret_error("Number of arguments is incorrect"); 
+      if (args.size() != G::arity) throw interpret_error("Number of arguments is incorrect");
       if (kw.size() != 0) throw interpret_error("Keyword arguments not accepted");
       // Build the tuple
       tuple_type t;
       ForEach(t, detail::BuildTuple<tuple_type>(args));
       return EncAll<return_type>::encode(boost::fusion::invoke(func, t));
-    }; 
+    };
 }
 
 template<class Class, typename F, typename ...Args>
 std::function<any(const detail::anyvec&, const detail::anymap&)> GenFunction(Class& c, F func, Args ... args)
 {
   auto fn = boost::bind(func, &c, args...);
-  return GenFunction<decltype(fn), detail::GenFunction<F> >(fn);
+  return GenFunction<decltype(fn), detail::function_traits<F> >(fn);
 }
 
 }
