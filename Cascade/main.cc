@@ -1,15 +1,10 @@
 #include <iostream>
-#include "TUniverseCDAQBox.hh"
-#include "BuildLambdaFunction.hh"
 #include "WrapDAQBox.hh"
 #include "Configuration.hh"
-#include "universe_api.h"
-#include <map>
 #include "autobahn/autobahn.hpp"
 #include <boost/asio.hpp>
 #include <boost/version.hpp>
 #include <boost/any.hpp>
-#include <msgpack.hpp>
 using namespace std;
 using namespace boost;
 using namespace autobahn;
@@ -19,25 +14,6 @@ using boost::asio::ip::tcp;
 
 int main()
 {
-   set_hw_byte_swap(true);
-   TUniverseCDAQBox box;
-   
-   // get version of the used HardwareLib and for wich OS it is compiled for
-   cout << box.GetVersionHardwareLib() << endl;
-   cout << box.GetVersionOS() << endl << endl;
-
-   // init the USB interface of the DAQBox
-   DWORD error;
-   cout << "0x" << hex << ( error = box.Init( 0x400000 ) ) << " : DAQBox Init" << endl;
-
-   CFConfig conf = box.GetActualConfigurationOfFirmware();
-   cout << "0x" << hex << box.ConfigureFirmware(conf) << endl;
-
-   cout << "Firmware: 0x" << hex << box.GetFirmwareVersReg() << endl;
-   cout << "Firmware: 0x" << hex << box.GetFirmwareSetupReg() << endl;
-   // If any error code unequal 0 (= EC_OK) has been returned by any method of any object 
-   // of the HardwareLib, the meaning and (until some extend) the history of the error propagation
-   // inside the code can be obtained in text-form by using the method GetErrorText() of this object!
    try {
       // ASIO service object
       //
@@ -93,7 +69,8 @@ int main()
 
                   // REGISTER a procedure for remote calling
                   //
-		  cascade::define_daqbox_interface(box, session);
+		  cascade::define_daqbox_interface(session);
+
                });
 
             } else {
