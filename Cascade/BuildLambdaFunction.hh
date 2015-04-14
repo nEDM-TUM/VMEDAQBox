@@ -86,12 +86,19 @@ std::function<any(const detail::anyvec&, const detail::anymap&)>  GenFunction(F 
     typedef typename G::tuple_type    tuple_type;
     typedef typename G::return_type   return_type;
     return [=] (const detail::anyvec& args, const detail::anymap& kw) {
-      if (args.size() != G::arity) throw interpret_error("Number of arguments is incorrect");
-      if (kw.size() != 0) throw interpret_error("Keyword arguments not accepted");
-      // Build the tuple
-      tuple_type t;
-      ForEach(t, detail::BuildTuple<tuple_type>(args));
-      return EncAll<return_type>::encode(boost::fusion::invoke(func, t));
+      try{
+        if (args.size() != G::arity) throw interpret_error("Number of arguments is incorrect");
+        if (kw.size() != 0) throw interpret_error("Keyword arguments not accepted");
+        // Build the tuple
+        tuple_type t;
+        ForEach(t, detail::BuildTuple<tuple_type>(args));
+        return EncAll<return_type>::encode(boost::fusion::invoke(func, t));
+      } catch (std::exception& ex) {
+        detail::anymap ret;
+        ret["error"] = true;
+        ret["msg"] = std::string(ex.what());
+        return boost::any(ret);
+      }
     };
 }
 
