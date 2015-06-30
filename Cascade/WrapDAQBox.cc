@@ -1,5 +1,6 @@
 #include "BuildLambdaFunction.hh"
 #include "WrapFirmware.hh"
+#include "PrintStruct.hh"
 #include "WrapBoard.hh"
 #include "universe_api.h"
 #include "TUniverseCDAQBox.hh"
@@ -10,6 +11,7 @@
 #include <vector>
 
 
+using cascade::PrintOut;
 namespace cascade {
   class daqbox_error: public std::runtime_error
   {
@@ -147,13 +149,20 @@ class InitializeDevice {
   public:
   InitializeDevice()
   {
+    RegisterTypeCheck<DWORD>([] (const DWORD& at) {
+      if (at != EC_OK) {
+        throw cascade::daqbox_error(gDAQBox.GetErrorText(at));
+      }
+      return at;
+    });
+
     set_hw_byte_swap(true);
     // get version of the used HardwareLib and for wich OS it is compiled for
     std::cout << gDAQBox.GetVersionHardwareLib() << std::endl;
     std::cout << gDAQBox.GetVersionOS() << std::endl;
 
     // init the USB interface of the DAQBox
-    std::cout << "0x" << std::hex << ( PerformCheck(gDAQBox.Init( 0x400000 )) )
+    std::cout << "0x" << std::hex << PerformCheck(gDAQBox.Init( 0x440000 ))
               << " : DAQBox Init" << std::endl;
     gMeasurementData.firmwareVersion = gDAQBox.GetFirmwareVersion();
     using std::cout;
@@ -173,6 +182,16 @@ class InitializeDevice {
     TUniverseCDAQBox* p_cf = &gDAQBox;
     TUniverseCDAQBox* p_m = &gDAQBox;
 
+    HSetup setup = gDAQBox.GetActualHardwareSetup();
+    cout << " ***************************************************************" << endl;
+    cout << " HSetup " << endl;
+    cout << "0x" << std::hex << PerformCheck(gDAQBox.SetHardwareSetup(setup)) << endl << endl;
+    PrintOut(setup);
+    cout << " ***************************************************************" << endl;
+
+
+    cout << " ***************************************************************" << endl;
+    cout << " firmware " << endl;
     CFConfig cconfig = p_cf->GetActualConfigurationOfFirmware();
 
     // Configuration register of the filter algorithm for event reconstruction in time and space.
@@ -198,27 +217,12 @@ class InitializeDevice {
     /// from firmware.
     cconfig.dwLengthTOFOut = 1000;
 
+    PrintOut(cconfig);
     cout << hex << p_cf->ConfigureFirmware( cconfig ) << " cf config" << endl;
+    cout << " ***************************************************************" << endl;
 
-    MConfig config = p_m->GetActualConfigurationOfMeasurement();
-
-    // config of the measurement type
-    config.dwTypeOfReadout = TWO_D_CROSSED_STRIPES;
-    config.dwTypeOfMeasurement = IMAGE;
-//  config.dwTypeOfMeasurement = TOF;
-    config.dwXResolution = 128;
-    config.dwYResolution = 128;
-
-    // measurement time in terms of 100ns
-    config.ullTimeToCount = 1*10000000; // 1 sec
-
-    // prameters for TOF
-    // dwelltime in terms of 100ns
-    config.dwDwellTime = 10000; // 1 msec
-    config.dwNoOfTimeBins = 1;
-    config.bBreakMode = true;
-
-    cout << hex << p_m->ConfigureMeasurement( config ) << " m config" << endl;
+    cout << " ***************************************************************" << endl;
+    cout << " simulation " << endl;
 
 
 
@@ -248,6 +252,44 @@ class InitializeDevice {
     simulation.dwChopperPeriod = 1000000; // 100ms
 
     cout << hex << p_cf->ConfigureFirmwareSimulation( simulation ) << " cf sim" << endl;
+    PrintOut(simulation);
+
+    cout << " ***************************************************************" << endl;
+    cout << " ***************************************************************" << endl;
+    cout << " measurement " << endl;
+    MConfig config = p_m->GetActualConfigurationOfMeasurement();
+
+    // config of the measurement type
+    config.dwTypeOfReadout = TWO_D_PIXEL;
+    config.dwTypeOfMeasurement = IMAGE;
+//  config.dwTypeOfMeasurement = TOF;
+    //config.dwXResolution = 128;
+    //config.dwYResolution = 128;
+
+    // measurement time in terms of 100ns
+    config.ullTimeToCount = 1*10000000; // 1 sec
+
+    // prameters for TOF
+    // dwelltime in terms of 100ns
+    config.dwDwellTime = 10000; // 1 msec
+    config.dwNoOfTimeBins = 1;
+    config.bBreakMode = true;
+
+    PrintOut(config);
+    cout << hex << p_m->ConfigureMeasurement( config ) << " m config" << endl;
+    cout << hex << PerformCheck(p_m->ConfigureMeasurement( config )) << " m config" << endl;
+    cout << " ***************************************************************" << endl;
+
+    gStatus.bins.time = gMeasurementData.measurementConfig.dwNoOfTimeBins;
+    gStatus.bins.x = gMeasurementData.measurementConfig.dwXResolution;
+    gStatus.bins.y = gMeasurementData.measurementConfig.dwYResolution;
+    gStatus.Reset();
+
+    PerformCheck(gDAQBox.InitDataBuffer(&gStatus.data[0]));
+    PerformCheck(gDAQBox.ClearSRAM());
+    //PerformCheck(gDAQBox.StartMeasurement());
+
+
   }
 };
 
@@ -340,12 +382,6 @@ namespace cascade {
 void define_daqbox_interface(cascade::session_type& s)
 {
 
-  RegisterTypeCheck<DWORD>([] (const DWORD& at) {
-    if (at != EC_OK) {
-      throw cascade::daqbox_error(gDAQBox.GetErrorText(at));
-    }
-    return at;
-  });
   #define NOWRAP(func) \
   auto r1_ ## func = s.provide(#func, cascade::GenFunction(Wrap(gDAQBox, &TUniverseCDAQBox::func))); \
     r1_ ## func.then([](boost::future<autobahn::registration> reg) {\
