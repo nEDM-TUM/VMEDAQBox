@@ -1,7 +1,7 @@
 #ifndef _WrapFirmware_hh_
 #define _WrapFirmware_hh_
 #include <boost/fusion/include/adapt_struct.hpp>
-#include "CFirmwareLib.h" 
+#include "CFirmwareLib.h"
 #include <iostream>
 
 typedef DWORD DWORD_Four[4];

@@ -165,13 +165,13 @@ struct DictType
 
 template <typename T> struct DecAll_s {
   typedef
-    typename boost::mpl::eval_if< 
+    typename boost::mpl::eval_if<
         boost::mpl::is_sequence<T>,
         boost::mpl::identity< DictType<T> >,
-        typename boost::mpl::eval_if< 
+        typename boost::mpl::eval_if<
            boost::is_array<T>,
            boost::mpl::identity< ArrayType<T> >,
-           BaseType<T>   
+           BaseType<T>
         >
     >
   ::type type;
@@ -184,7 +184,7 @@ template <typename T> struct DecAll : public DecAll_s<T>::type { };
 // Encode *TO* python
 template <typename T> struct EncAll;
 
-// Base encoding 
+// Base encoding
 template<typename T>
 struct EncodeBaseType
 {
@@ -195,7 +195,7 @@ struct EncodeBaseType
   }
 };
 
-// Array encoding 
+// Array encoding
 template<typename T>
 struct EncodeArrayType
 {
@@ -212,7 +212,7 @@ struct EncodeArrayType
   }
 };
 
-// Sequence/Struc encoding 
+// Sequence/Struc encoding
 template<typename Struct>
 struct EncodeDictType
 {
@@ -240,13 +240,13 @@ struct EncodeDictType
 
 template <typename T> struct EncAll_s {
   typedef
-    typename boost::mpl::eval_if< 
+    typename boost::mpl::eval_if<
         boost::mpl::is_sequence<T>,
         boost::mpl::identity< EncodeDictType<T> >,
-        typename boost::mpl::eval_if< 
+        typename boost::mpl::eval_if<
            boost::is_array<T>,
            boost::mpl::identity< EncodeArrayType<T> >,
-           EncodeBaseType<T>   
+           EncodeBaseType<T>
         >
     >
   ::type type;

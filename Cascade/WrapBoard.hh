@@ -1,7 +1,7 @@
 #ifndef _WrapBoard_hh_
 #define _WrapBoard_hh_
 #include <boost/fusion/include/adapt_struct.hpp>
-#include "MBoardLib.h" 
+#include "MBoardLib.h"
 
 typedef DWORD ChannelArray[64];
 

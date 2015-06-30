@@ -1,4 +1,4 @@
-#include "BuildLambdaFunction.hh" 
+#include "BuildLambdaFunction.hh"
 #include "WrapFirmware.hh"
 #include "WrapBoard.hh"
 #include "universe_api.h"
@@ -55,7 +55,7 @@ struct CurrentStatus {
 // 1. Configure Firmware
 // 2. Configure Measurement
 // 3. Configure simulation (if it is a simulation)
-// 4. Generate buffer, read out 
+// 4. Generate buffer, read out
 // At the end, readout data
 
 TUniverseCDAQBox gDAQBox;
@@ -69,7 +69,7 @@ template<class classType, typename funcType, typename F, typename... Args>
 struct WrapFunction
 {
   typedef std::function<F(Args...)> return_type;
-  static return_type Wrap(classType& anobj, funcType func) 
+  static return_type Wrap(classType& anobj, funcType func)
   {
     return [&anobj,func] (Args... args) {
       return (anobj.*func)(args...);
@@ -100,25 +100,25 @@ class InitializeDevice {
   public:
   InitializeDevice()
   {
-    set_hw_byte_swap(true); 
+    set_hw_byte_swap(true);
     // get version of the used HardwareLib and for wich OS it is compiled for
     std::cout << gDAQBox.GetVersionHardwareLib() << std::endl;
     std::cout << gDAQBox.GetVersionOS() << std::endl;
-    
+
     // init the USB interface of the DAQBox
     DWORD error;
-    std::cout << "0x" << std::hex << ( error = gDAQBox.Init( 0x400000 ) ) 
+    std::cout << "0x" << std::hex << ( error = gDAQBox.Init( 0x400000 ) )
               << " : DAQBox Init" << std::endl;
   }
 };
 
-InitializeDevice gDev;  
+InitializeDevice gDev;
 
 }
 /*
                   any t = cascade::EncAll<CFConfig>::encode(CFConfig());
                   cerr << t.type().name() << endl;
-                  session.call("send_to_database", {t}) 
+                  session.call("send_to_database", {t})
                   .then([&](future<any> f) {
                      try {
                         bool result = any_cast<bool> (f.get());
@@ -147,8 +147,8 @@ void define_daqbox_interface(cascade::session_type& s)
 
    //NOWRAP(GetFirmwareVersReg)
    //NOWRAP(GetSerialNumber)
-   //.def<BL::strMemFn>("GetFirmwareVersion", &BL::GetFirmwareVersion ) 
-   //.def<BL::strMemFn>("GetFirmwareSetup", &BL::GetFirmwareVersion ) 
+   //.def<BL::strMemFn>("GetFirmwareVersion", &BL::GetFirmwareVersion )
+   //.def<BL::strMemFn>("GetFirmwareSetup", &BL::GetFirmwareVersion )
    //NOWRAP(GetFirmwareSetupReg)
    //    // setup of the CFBoard hardware
    NOWRAP(GetActualHardwareSetup)
