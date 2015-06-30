@@ -43,12 +43,12 @@ DWORD TUniverseCDAQBox::CallSysReset()
 {
   // Call Sys Reset on VME Bus
   uint32_t readDev;
-  if ( sizeof(readDev) != 
+  if ( sizeof(readDev) !=
         m_ControlDevice->Read((char*)&readDev, sizeof(readDev), 0x404 ) ) {
     return ES_DeviceDriver;
   }
   readDev |= 0x404000;
-  if ( sizeof(readDev) != 
+  if ( sizeof(readDev) !=
         m_ControlDevice->Write((char*)&readDev, sizeof(readDev), 0x404 ) ) {
     return ES_DeviceDriver;
   }
@@ -140,7 +140,7 @@ DWORD TUniverseCDAQBox::DMAReadDWordSubModule(
   uint32_t address = TranslateAddress(SubModuleAddr, offset);
 
   // Grab a DMA device
-  TUVMEDevice* dev = 
+  TUVMEDevice* dev =
     get_dma_device(address, DL710_AddressMod, DL710_DataSize, false);
   if (!dev) return ES_DeviceDriver;
   int32_t retVal = dev->Read((char*)pData,

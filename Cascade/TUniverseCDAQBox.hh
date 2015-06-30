@@ -36,7 +36,7 @@ class TUniverseCDAQBox : public CDAQBoxLib
     TUVMEDevice *m_ControlDevice;
     DWORD        m_BaseAddress;
 
-     
+
 	// Unfortunately, these were made virtual and are *hidden* in the
 	// inheritance tree.  We explicitly *do not* implement them here.
 	DWORD Init( const std::string, const DWORD ) { return 0; }
