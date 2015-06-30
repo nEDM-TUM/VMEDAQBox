@@ -4,6 +4,8 @@
 #include "StructConversion.hh"
 
 #include <iostream>
+
+namespace cascade {
 namespace fusion = boost::fusion;
 namespace mpl=boost::mpl;
 
@@ -73,6 +75,12 @@ template <typename T> struct PrintAll_s
 
 template <typename T> struct PrintAll : public PrintAll_s<T>::type { };
 
+template<typename T>
+void PrintOut(const T& obj)
+{
+  PrintAll<T>::print(obj);
+}
 
+}
 #endif
 
