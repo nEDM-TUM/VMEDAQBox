@@ -178,6 +178,20 @@ template <typename T> struct DecAll_s {
 };
 
 template <typename T> struct DecAll : public DecAll_s<T>::type { };
+
+template<typename T> struct DecAll < std::vector<T> > {
+  typedef std::vector<T> vec_type;
+  static void decode(const any& from, vec_type& to)
+  {
+    const detail::anyvec& from_cast = boost::any_cast<const detail::anyvec&>(from);
+    to.resize(from_cast.size());
+    for (size_t i=0;i<to.size();i++) {
+      DecAll<T>::decode(from_cast[i], to[i]);
+    }
+  }
+
+};
+
 //___________________________________________________________
 
 //___________________________________________________________
@@ -253,5 +267,19 @@ template <typename T> struct EncAll_s {
 };
 
 template <typename T> struct EncAll : public EncAll_s<T>::type { };
+
+template<typename T> struct EncAll < std::vector<T> > {
+  typedef std::vector<T> vec_type;
+  static any encode(const vec_type& from)
+  {
+    detail::anyvec newList;
+    for (size_t i=0;i<from.size();i++) {
+      newList.push_back(EncAll<T>::encode(from[i]));
+    }
+    return newList;
+  }
+
+};
+
 }
 #endif
