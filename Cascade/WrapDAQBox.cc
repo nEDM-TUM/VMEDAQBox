@@ -1,40 +1,14 @@
 #include "BuildLambdaFunction.hh"
-#include "WrapFirmware.hh"
 #include "PrintStruct.hh"
-#include "WrapBoard.hh"
-#include "universe_api.h"
-#include "TUniverseCDAQBox.hh"
 #include "Configuration.hh"
 #include <boost/bind.hpp>
 #include "autobahn/autobahn.hpp"
 #include <iostream>
-#include <vector>
-
+#include "InitializeDevice.hh"
+#include "ReturnCheck.hh"
+#include "Error.hh"
 
 using cascade::PrintOut;
-namespace cascade {
-  class daqbox_error: public std::runtime_error
-  {
-    public:
-      daqbox_error(const std::string& msg) : std::runtime_error(msg) {}
-  };
-
-}
-
-
-struct MeasurementData {
-    std::string   firmwareVersion;
-    ULONGLONG     lifeTimeElapsed;
-    ULONGLONG     eventsCounted;
-    ULONGLONG     sweepsElapsed;
-    double        chopperFrequency;
-    CFConfig      firmwareConfig;
-    HSetup        hardwareConfig;
-    MConfig       measurementConfig;
-    CFSimulation  simulationConfig;
-    CFStatistics  statistics;
-    CFDiagnostics diagnostics;
-};
 
 BOOST_FUSION_ADAPT_STRUCT(
   MeasurementData,
@@ -51,29 +25,12 @@ BOOST_FUSION_ADAPT_STRUCT(
    (CFDiagnostics, diagnostics)
 )
 
-typedef std::vector<DWORD> vec_type;
-
-struct BinSizes {
-    DWORD time;
-    DWORD x;
-    DWORD y;
-};
-
 BOOST_FUSION_ADAPT_STRUCT(
   BinSizes,
    (DWORD, time)
    (DWORD, x)
    (DWORD, y)
 )
-
-struct CurrentStatus {
-    vec_type  data;
-    BinSizes  bins;
-    bool      isMeasuring;
-    bool      isLocked;
-    ULONGLONG absTimeElapsed;
-    void Reset() { data.resize(bins.x*bins.y*bins.time); absTimeElapsed = 0;}
-};
 
 BOOST_FUSION_ADAPT_STRUCT(
   CurrentStatus,
@@ -88,31 +45,15 @@ namespace {
 
 using cascade::detail::anyvec;
 using cascade::detail::anymap;
+using cascade::PerformCheck;
 
-typedef std::map<std::string, boost::any> check_return_map;
-check_return_map gReturnMap;
+cascade::InitializeDevice gDev;
 
-template<typename T>
-void RegisterTypeCheck(std::function<T(const T&)> func)
-{
-  gReturnMap[typeid(T).name()] = func;
-}
-
-template<typename T>
-T PerformCheck(const T& val)
-{
-  auto check = gReturnMap.find(typeid(T).name());
-  if (check == gReturnMap.end()) return val;
-  return boost::any_cast<std::function<T(const T&)> >(check->second)(val);
-}
-
-
-TUniverseCDAQBox gDAQBox;
+TUniverseCDAQBox& gDAQBox = gDev._DAQBox;
 
 // Structs to hold status and measurement
-CurrentStatus gStatus;
-MeasurementData gMeasurementData;
-
+CurrentStatus& gStatus = gDev._Status;
+MeasurementData& gMeasurementData = gDev._MeasurementData;
 
 template<class classType, typename funcType, typename F, typename... Args>
 struct WrapFunction
@@ -145,155 +86,6 @@ typename WrapImpl<F>::return_type Wrap(C& anobj, F func)
   return WrapImpl<F>::Wrap(anobj, func);
 }
 
-class InitializeDevice {
-  public:
-  InitializeDevice()
-  {
-    RegisterTypeCheck<DWORD>([] (const DWORD& at) {
-      if (at != EC_OK) {
-        throw cascade::daqbox_error(gDAQBox.GetErrorText(at));
-      }
-      return at;
-    });
-
-    set_hw_byte_swap(true);
-    // get version of the used HardwareLib and for wich OS it is compiled for
-    std::cout << gDAQBox.GetVersionHardwareLib() << std::endl;
-    std::cout << gDAQBox.GetVersionOS() << std::endl;
-
-    // init the USB interface of the DAQBox
-    std::cout << "0x" << std::hex << PerformCheck(gDAQBox.Init( 0x440000 ))
-              << " : DAQBox Init" << std::endl;
-    gMeasurementData.firmwareVersion = gDAQBox.GetFirmwareVersion();
-    using std::cout;
-    using std::endl;
-    using std::hex;
-    // reset DAQBox, if wanted or needed
-    cout << "0x" << std::hex << gDAQBox.Reset() << " : DAQBox Reset" << endl;
-
-    // get firmware version of DAQBox
-    cout << gDAQBox.GetFirmwareVersion() << endl;
-
-    // get status register
-    DWORD status;
-    cout << "0x" << std::hex << gDAQBox.GetStatusRegister(&status) << " : DAQBox get status" << endl;
-    cout << "0x" << std::hex << status << endl << endl;
-
-    TUniverseCDAQBox* p_cf = &gDAQBox;
-    TUniverseCDAQBox* p_m = &gDAQBox;
-
-    HSetup setup = gDAQBox.GetActualHardwareSetup();
-    cout << " ***************************************************************" << endl;
-    cout << " HSetup " << endl;
-    cout << "0x" << std::hex << PerformCheck(gDAQBox.SetHardwareSetup(setup)) << endl << endl;
-    PrintOut(setup);
-    cout << " ***************************************************************" << endl;
-
-
-    cout << " ***************************************************************" << endl;
-    cout << " firmware " << endl;
-    CFConfig cconfig = p_cf->GetActualConfigurationOfFirmware();
-
-    // Configuration register of the filter algorithm for event reconstruction in time and space.
-    // ConfigReg = AntiAll(5+1+(NO_OF_CIPIX/2) - 0) |
-    //              AntiCorner(2 - 0) | TakeNoGainBit |
-    //              TakeBrokenBit | GEMTimeBit | NoFilterBit | ResetBit
-    // Further details under section "Filter Entity Reference" of CASCADE firmware manuals.
-    cconfig.dwEventFilterConfig = 0x1040;
-    // type of list mode data: raw data (RAW) or filtered (FILTERED) data
-    cconfig.dwTypeOfListModeData = RAW;
-    // dis/enable Slave mode
-    cconfig.bSlaveMode = false;
-
-    /// Which INPUT( No = 0, 1, 2, ... ) will be connected to which internal signal 'nSignalIn'.
-    /// Further details under section "DigitalIO Entity Reference" of CASCADE firmware manuals.
-    for (int i = 0; i < 4; i++ )
-        cconfig.dwInputMultiplexer[i] = i;
-    /// Which OUTPUT( No = 0, 1, 2, ... ) will be connected to which internal Signal 'nSignalOut'.
-    /// Further details under section "DigitalIO Entity Reference" of CASCADE firmware manuals.
-    for (int i = 0; i < 4; i++ )
-        cconfig.dwOutputMultiplexer[i] = i;
-    /// Length of TOF output signals (Chopper, NewTimeBin) in terms of 25ns (1 - 2^24-1) generated
-    /// from firmware.
-    cconfig.dwLengthTOFOut = 1000;
-
-    PrintOut(cconfig);
-    cout << hex << p_cf->ConfigureFirmware( cconfig ) << " cf config" << endl;
-    cout << " ***************************************************************" << endl;
-
-    cout << " ***************************************************************" << endl;
-    cout << " simulation " << endl;
-
-
-
-    //--------------------- Configuration of a Simulation -----------------------------------------
-
-    CFSimulation simulation;
-    simulation.bSimulationCIPix = true;
-    simulation.dwNoOfPauseCycles = 2;
-
-    // j = 0 (low-word CIPix 0), 1 (high-word CIPix 0), 2 (low-word CIPix 1), etc.
-    DWORD j = 0;
-    simulation.dwXSimulationPattern[0][j] = 0x00000001;
-    simulation.dwXSimulationPattern[1][j] = 0x00000000;
-    simulation.dwXSimulationPattern[2][j] = 0x80000000;
-    simulation.dwXSimulationPattern[3][j] = 0x00000008;
-    simulation.dwXSimulationPattern[4][j] = 0x00000000;
-    simulation.dwXSimulationPattern[5][j] = 0x00000000;
-    simulation.dwXSimulationPattern[6][j] = 0x00000008;
-    simulation.dwXSimulationPattern[7][j] = 0x00000008;
-
-    simulation.dwYSimulationPattern[0][j] = 0x00000001;
-    simulation.dwYSimulationPattern[1][j] = 0x00000000;
-    simulation.dwYSimulationPattern[2][j] = 0x80000000;
-    //...
-
-    simulation.bSimulationChopper = false;
-    simulation.dwChopperPeriod = 1000000; // 100ms
-
-    cout << hex << p_cf->ConfigureFirmwareSimulation( simulation ) << " cf sim" << endl;
-    PrintOut(simulation);
-
-    cout << " ***************************************************************" << endl;
-    cout << " ***************************************************************" << endl;
-    cout << " measurement " << endl;
-    MConfig config = p_m->GetActualConfigurationOfMeasurement();
-
-    // config of the measurement type
-    config.dwTypeOfReadout = TWO_D_PIXEL;
-    config.dwTypeOfMeasurement = IMAGE;
-//  config.dwTypeOfMeasurement = TOF;
-    //config.dwXResolution = 128;
-    //config.dwYResolution = 128;
-
-    // measurement time in terms of 100ns
-    config.ullTimeToCount = 1*10000000; // 1 sec
-
-    // prameters for TOF
-    // dwelltime in terms of 100ns
-    config.dwDwellTime = 10000; // 1 msec
-    config.dwNoOfTimeBins = 1;
-    config.bBreakMode = true;
-
-    PrintOut(config);
-    cout << hex << p_m->ConfigureMeasurement( config ) << " m config" << endl;
-    cout << hex << PerformCheck(p_m->ConfigureMeasurement( config )) << " m config" << endl;
-    cout << " ***************************************************************" << endl;
-
-    gStatus.bins.time = gMeasurementData.measurementConfig.dwNoOfTimeBins;
-    gStatus.bins.x = gMeasurementData.measurementConfig.dwXResolution;
-    gStatus.bins.y = gMeasurementData.measurementConfig.dwYResolution;
-    gStatus.Reset();
-
-    PerformCheck(gDAQBox.InitDataBuffer(&gStatus.data[0]));
-    PerformCheck(gDAQBox.ClearSRAM());
-    //PerformCheck(gDAQBox.StartMeasurement());
-
-
-  }
-};
-
-InitializeDevice gDev;
 
 // Steps of measurement
 // 1. Configure Firmware
@@ -369,7 +161,6 @@ boost::any StopMeasurement()
   gStatus.isLocked = false;
   return config;
 }
-
 
 }
 
