@@ -112,6 +112,7 @@ DWORD TUniverseCDAQBox::Init(DWORD vmeBaseAddress)
       Close();
       return error;
   }
+  bInitialized = true;
   return EC_OK;
 }
 
