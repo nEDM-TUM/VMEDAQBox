@@ -26,6 +26,7 @@ class TUniverseCDAQBox : public CDAQBoxLib
     DWORD Init( DWORD vmeBaseAdress );
     virtual DWORD Close();
     virtual DWORD Reset();
+    virtual DWORD StopMeasurement();
 
     // communication with the remote station of the interface
 

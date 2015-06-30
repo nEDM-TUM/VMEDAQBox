@@ -199,6 +199,12 @@ DWORD TUniverseCDAQBox::DMAReadDWordSubModule(
 }
 
 //_____________________________________________________________________________
+DWORD TUniverseCDAQBox::StopMeasurement()
+{
+  return WriteDWordSubModule(0x60, 0x0, 0x2);
+}
+
+//_____________________________________________________________________________
 bool TUniverseCDAQBox::GetClassAndMethod(
         const DWORD MethodId,
         std::string *pClassAndMethodName )
