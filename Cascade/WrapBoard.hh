@@ -51,4 +51,9 @@ BOOST_FUSION_ADAPT_STRUCT(
    //(std::ofstream *pListModeFile)
    (bool, bListModeFileBinary)
 )
+
+namespace cascade {
+  void Print(const MConfig& conf);
+  void Print(const HSetup& conf);
+}
 #endif

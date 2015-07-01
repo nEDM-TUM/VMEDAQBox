@@ -4,6 +4,8 @@
 #include "Error.hh"
 #include <iostream>
 #include "universe_api.h"
+#include "StructConversion.hh"
+#include "BuildLambdaFunction.hh"
 
 
 namespace cascade {
@@ -127,9 +129,93 @@ InitializeDevice::InitializeDevice()
 
   PerformCheck(_DAQBox.InitDataBuffer(&_Status.data[0]));
   PerformCheck(_DAQBox.ClearSRAM());
-  //PerformCheck(_DAQBox.StartMeasurement());
+  PerformCheck(_DAQBox.StartMeasurement());
 
 
+}
+
+InitializeDevice& InitializeDevice::Device()
+{
+  static InitializeDevice fgDev;
+  return fgDev;
+}
+
+// Structs to hold status and measurement
+InitializeDevice& gDev = InitializeDevice::Device();
+TUniverseCDAQBox& gDAQBox = gDev._DAQBox;
+CurrentStatus& gStatus = gDev._Status;
+MeasurementData& gMeasurementData = gDev._MeasurementData;
+
+using cascade::detail::anyvec;
+using cascade::detail::anymap;
+
+boost::any StartMeasurement()
+{
+  // Check if we're running
+  if (gStatus.isLocked || gStatus.isMeasuring) {
+    throw cascade::daqbox_error("Card locked or running");
+  }
+  gStatus.isMeasuring = true;
+
+  // Grab the current setup
+  gMeasurementData.firmwareConfig = gDAQBox.GetActualConfigurationOfFirmware();
+  gMeasurementData.hardwareConfig = gDAQBox.GetActualHardwareSetup();
+  gMeasurementData.measurementConfig = gDAQBox.GetActualConfigurationOfMeasurement();
+  gMeasurementData.simulationConfig = gDAQBox.GetActualConfigurationOfFirmwareSimulation();
+
+  // Allocate the correct amount of data
+  gStatus.bins.time = gMeasurementData.measurementConfig.dwNoOfTimeBins;
+  gStatus.bins.x = gMeasurementData.measurementConfig.dwXResolution;
+  gStatus.bins.y = gMeasurementData.measurementConfig.dwYResolution;
+  gStatus.Reset();
+
+  PerformCheck(gDAQBox.InitDataBuffer(&gStatus.data[0]));
+  PerformCheck(gDAQBox.StartMeasurement());
+  return true;
+}
+
+boost::any GetCurrentStatus()
+{
+  gDAQBox.Measurement();
+  gStatus.absTimeElapsed = gDAQBox.GetAbsTimeElapsed();
+  DWORD status;
+  PerformCheck(gDAQBox.GetStatusRegister(&status));
+  gStatus.isMeasuring = ((status & 0x8) == 0);
+  return gStatus.encode();
+}
+
+boost::any StopMeasurement()
+{
+  // Check if we're running
+  //if (!gStatus.isLocked) {
+  //  throw cascade::daqbox_error("Card should be locked when calling stop measurement");
+  //}
+
+  PerformCheck(gDAQBox.StopMeasurement());
+  // Grab the current setup
+
+  bool stopped = false;
+  while(!stopped) {
+    PerformCheck(gDAQBox.HasMeasurementStopped(&stopped));
+  }
+
+  PerformCheck(gDAQBox.ReadStatistics(&gMeasurementData.statistics));
+  PerformCheck(gDAQBox.ReadDiagnostics(&gMeasurementData.diagnostics));
+
+  gMeasurementData.lifeTimeElapsed = gDAQBox.GetLifeTimeElapsed();
+  gMeasurementData.eventsCounted = gDAQBox.GetEventsCounted();
+  gMeasurementData.sweepsElapsed = gDAQBox.GetSweepsElapsed();
+  gMeasurementData.chopperFrequency = gDAQBox.GetChopperFrequency();
+
+  anymap config = boost::any_cast<anymap>(gMeasurementData.encode());
+  if (!gMeasurementData.simulationConfig.bSimulationCIPix) {
+    // Remove from the config
+    config.erase("simulationConfig");
+  }
+  config["status"] = GetCurrentStatus();
+
+  gStatus.isLocked = false;
+  return config;
 }
 
 }

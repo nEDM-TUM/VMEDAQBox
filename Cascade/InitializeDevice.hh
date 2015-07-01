@@ -5,11 +5,20 @@
 
 namespace cascade {
 
+
+boost::any StartMeasurement();
+boost::any GetCurrentStatus();
+boost::any StopMeasurement();
+
 class InitializeDevice {
-  public:
+  private:
   InitializeDevice();
+  InitializeDevice(const InitializeDevice&);
+  InitializeDevice& operator=(const InitializeDevice&);
 
   public:
+
+  static InitializeDevice& Device();
   TUniverseCDAQBox _DAQBox;
   CurrentStatus _Status;
   MeasurementData _MeasurementData;

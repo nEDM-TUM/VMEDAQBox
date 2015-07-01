@@ -1,5 +1,4 @@
 #include "BuildLambdaFunction.hh"
-#include "PrintStruct.hh"
 #include "Configuration.hh"
 #include <boost/bind.hpp>
 #include "autobahn/autobahn.hpp"
@@ -7,53 +6,13 @@
 #include "InitializeDevice.hh"
 #include "ReturnCheck.hh"
 #include "Error.hh"
-
-using cascade::PrintOut;
-
-BOOST_FUSION_ADAPT_STRUCT(
-  MeasurementData,
-   (std::string  , firmwareVersion)
-   (ULONGLONG    , lifeTimeElapsed)
-   (ULONGLONG    , eventsCounted)
-   (ULONGLONG    , sweepsElapsed)
-   (double       , chopperFrequency)
-   (CFConfig     , firmwareConfig)
-   (HSetup       , hardwareConfig)
-   (MConfig      , measurementConfig)
-   (CFSimulation , simulationConfig)
-   (CFStatistics , statistics)
-   (CFDiagnostics, diagnostics)
-)
-
-BOOST_FUSION_ADAPT_STRUCT(
-  BinSizes,
-   (DWORD, time)
-   (DWORD, x)
-   (DWORD, y)
-)
-
-BOOST_FUSION_ADAPT_STRUCT(
-  CurrentStatus,
-   (vec_type , data)
-   (BinSizes , bins)
-   (bool     , isMeasuring)
-   (bool     , isLocked)
-   (ULONGLONG, absTimeElapsed)
-)
+#include "WrapBoard.hh"
+#include "WrapFirmware.hh"
 
 namespace {
 
-using cascade::detail::anyvec;
-using cascade::detail::anymap;
 using cascade::PerformCheck;
 
-cascade::InitializeDevice gDev;
-
-TUniverseCDAQBox& gDAQBox = gDev._DAQBox;
-
-// Structs to hold status and measurement
-CurrentStatus& gStatus = gDev._Status;
-MeasurementData& gMeasurementData = gDev._MeasurementData;
 
 template<class classType, typename funcType, typename F, typename... Args>
 struct WrapFunction
@@ -86,6 +45,8 @@ typename WrapImpl<F>::return_type Wrap(C& anobj, F func)
   return WrapImpl<F>::Wrap(anobj, func);
 }
 
+}
+
 
 // Steps of measurement
 // 1. Configure Firmware
@@ -93,76 +54,7 @@ typename WrapImpl<F>::return_type Wrap(C& anobj, F func)
 // 3. Configure simulation (if it is a simulation)
 // 4. Generate buffer, read out
 // At the end, readout data
-boost::any StartMeasurement()
-{
-  // Check if we're running
-  if (gStatus.isLocked || gStatus.isMeasuring) {
-    throw cascade::daqbox_error("Card locked or running");
-  }
-  gStatus.isMeasuring = true;
 
-  // Grab the current setup
-  gMeasurementData.firmwareConfig = gDAQBox.GetActualConfigurationOfFirmware();
-  gMeasurementData.hardwareConfig = gDAQBox.GetActualHardwareSetup();
-  gMeasurementData.measurementConfig = gDAQBox.GetActualConfigurationOfMeasurement();
-  gMeasurementData.simulationConfig = gDAQBox.GetActualConfigurationOfFirmwareSimulation();
-
-  // Allocate the correct amount of data
-  gStatus.bins.time = gMeasurementData.measurementConfig.dwNoOfTimeBins;
-  gStatus.bins.x = gMeasurementData.measurementConfig.dwXResolution;
-  gStatus.bins.y = gMeasurementData.measurementConfig.dwYResolution;
-  gStatus.Reset();
-
-  PerformCheck(gDAQBox.InitDataBuffer(&gStatus.data[0]));
-  PerformCheck(gDAQBox.StartMeasurement());
-  return true;
-}
-
-boost::any GetCurrentStatus()
-{
-  PerformCheck(gDAQBox.Measurement());
-  gStatus.absTimeElapsed = gDAQBox.GetAbsTimeElapsed();
-  DWORD status;
-  PerformCheck(gDAQBox.GetStatusRegister(&status));
-  gStatus.isMeasuring = ((status & 0x8) == 0);
-  return cascade::EncAll<CurrentStatus>::encode(gStatus);
-}
-
-boost::any StopMeasurement()
-{
-  // Check if we're running
-  if (!gStatus.isLocked) {
-    throw cascade::daqbox_error("Card should be locked when calling stop measurement");
-  }
-
-  PerformCheck(gDAQBox.StopMeasurement());
-  // Grab the current setup
-
-  bool stopped = false;
-  while(!stopped) {
-    PerformCheck(gDAQBox.HasMeasurementStopped(&stopped));
-  }
-
-  PerformCheck(gDAQBox.ReadStatistics(&gMeasurementData.statistics));
-  PerformCheck(gDAQBox.ReadDiagnostics(&gMeasurementData.diagnostics));
-
-  gMeasurementData.lifeTimeElapsed = gDAQBox.GetLifeTimeElapsed();
-  gMeasurementData.eventsCounted = gDAQBox.GetEventsCounted();
-  gMeasurementData.sweepsElapsed = gDAQBox.GetSweepsElapsed();
-  gMeasurementData.chopperFrequency = gDAQBox.GetChopperFrequency();
-
-  anymap config = boost::any_cast<anymap>(cascade::EncAll<MeasurementData>::encode(gMeasurementData));
-  if (!gMeasurementData.simulationConfig.bSimulationCIPix) {
-    // Remove from the config
-    config.erase("simulationConfig");
-  }
-  config["status"] = GetCurrentStatus();
-
-  gStatus.isLocked = false;
-  return config;
-}
-
-}
 
 // Interface
 // Set/Get configuration
@@ -173,6 +65,7 @@ namespace cascade {
 void define_daqbox_interface(cascade::session_type& s)
 {
 
+  TUniverseCDAQBox& gDAQBox = InitializeDevice::Device()._DAQBox;
   #define NOWRAP(func) \
   auto r1_ ## func = s.provide(#func, cascade::GenFunction(Wrap(gDAQBox, &TUniverseCDAQBox::func))); \
     r1_ ## func.then([](boost::future<autobahn::registration> reg) {\

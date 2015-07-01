@@ -1,9 +1,10 @@
 #ifndef _MeasurementStruct_hh_
 #define _MeasurementStruct_hh_
 
-#include "WrapFirmware.hh"
-#include "WrapBoard.hh"
 #include <vector>
+#include <boost/any.hpp>
+#include "MBoardLib.h"
+#include "CFirmwareLib.h"
 
 struct MeasurementData {
     std::string   firmwareVersion;
@@ -17,6 +18,8 @@ struct MeasurementData {
     CFSimulation  simulationConfig;
     CFStatistics  statistics;
     CFDiagnostics diagnostics;
+
+    boost::any    encode();
 };
 
 typedef std::vector<DWORD> vec_type;
@@ -33,7 +36,9 @@ struct CurrentStatus {
     bool      isMeasuring;
     bool      isLocked;
     ULONGLONG absTimeElapsed;
-    void Reset() { data.resize(bins.x*bins.y*bins.time); absTimeElapsed = 0;}
+
+    void          Reset() { data.resize(bins.x*bins.y*bins.time); absTimeElapsed = 0;}
+    boost::any    encode();
 };
 
 #endif /*_MeasurementStruct_hh_ */

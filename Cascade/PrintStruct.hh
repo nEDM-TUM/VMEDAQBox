@@ -81,6 +81,12 @@ void PrintOut(const T& obj)
   PrintAll<T>::print(obj);
 }
 
+#define DEFINEPRINT(atype) \
+void Print(const atype& t) \
+{                          \
+  PrintOut(t);             \
+}
+
 }
 #endif
 
