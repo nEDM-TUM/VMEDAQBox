@@ -134,21 +134,25 @@ InitializeDevice::InitializeDevice()
 
 }
 
+//_____________________________________________________________________________
 InitializeDevice& InitializeDevice::Device()
 {
   static InitializeDevice fgDev;
   return fgDev;
 }
 
+//_____________________________________________________________________________
 // Structs to hold status and measurement
 InitializeDevice& gDev = InitializeDevice::Device();
 TUniverseCDAQBox& gDAQBox = gDev._DAQBox;
 CurrentStatus& gStatus = gDev._Status;
 MeasurementData& gMeasurementData = gDev._MeasurementData;
 
+//_____________________________________________________________________________
 using cascade::detail::anyvec;
 using cascade::detail::anymap;
 
+//_____________________________________________________________________________
 boost::any StartMeasurement()
 {
   // Check if we're running
@@ -174,8 +178,10 @@ boost::any StartMeasurement()
   return true;
 }
 
+//_____________________________________________________________________________
 boost::any GetCurrentStatus()
 {
+  // Get Current Status of measurement (or card)
   gDAQBox.Measurement();
   gStatus.absTimeElapsed = gDAQBox.GetAbsTimeElapsed();
   DWORD status;
@@ -184,6 +190,7 @@ boost::any GetCurrentStatus()
   return gStatus.encode();
 }
 
+//_____________________________________________________________________________
 boost::any StopMeasurement()
 {
   // Check if we're running
