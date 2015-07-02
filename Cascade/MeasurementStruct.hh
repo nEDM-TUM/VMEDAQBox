@@ -34,7 +34,6 @@ struct CurrentStatus {
     vec_type  data;
     BinSizes  bins;
     bool      isMeasuring;
-    bool      isLocked;
     ULONGLONG absTimeElapsed;
 
     void          Reset() { data.resize(bins.x*bins.y*bins.time); absTimeElapsed = 0;}

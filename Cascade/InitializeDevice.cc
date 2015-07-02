@@ -156,8 +156,8 @@ using cascade::detail::anymap;
 boost::any StartMeasurement()
 {
   // Check if we're running
-  if (gStatus.isLocked || gStatus.isMeasuring) {
-    throw cascade::daqbox_error("Card locked or running");
+  if (gStatus.isMeasuring) {
+    throw cascade::daqbox_error("Card running");
   }
   gStatus.isMeasuring = true;
 
@@ -194,10 +194,6 @@ boost::any GetCurrentStatus()
 boost::any StopMeasurement()
 {
   // Check if we're running
-  //if (!gStatus.isLocked) {
-  //  throw cascade::daqbox_error("Card should be locked when calling stop measurement");
-  //}
-
   PerformCheck(gDAQBox.StopMeasurement());
   // Grab the current setup
 
@@ -221,7 +217,6 @@ boost::any StopMeasurement()
   }
   config["status"] = GetCurrentStatus();
 
-  gStatus.isLocked = false;
   return config;
 }
 

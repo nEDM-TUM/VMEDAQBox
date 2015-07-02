@@ -31,7 +31,6 @@ BOOST_FUSION_ADAPT_STRUCT(
    (vec_type , data)
    (BinSizes , bins)
    (bool     , isMeasuring)
-   (bool     , isLocked)
    (ULONGLONG, absTimeElapsed)
 )
 
