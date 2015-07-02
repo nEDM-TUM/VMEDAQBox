@@ -1,7 +1,6 @@
 #include "TUniverseCDAQBox.hh"
 #include "universe_api.h"
 #include <exception>
-#include <iostream>
 
 
 namespace {
@@ -155,7 +154,6 @@ DWORD TUniverseCDAQBox::ReadDWordSubModule(
        m_VMEDev->Read((char*)pData, DL710_DataSize, address) != DL710_DataSize) {
     return kReadDWordSubModule | ES_DeviceDriver;
   }
-  //std::cout << "Read at: 0x" << std::hex << address << " 0x" << *pData << std::endl;
   return EC_OK;
 }
 
@@ -167,7 +165,6 @@ DWORD TUniverseCDAQBox::WriteDWordSubModule(
 {
   // Write Sub-module at offset
   uint32_t address = TranslateAddress(SubModuleAddr, offset);
-  std::cout << "Write at: 0x" << std::hex << address << " 0x" << pData << std::endl;
   if (!m_VMEDev ||
        m_VMEDev->Write((char*)&pData, DL710_DataSize, address) != DL710_DataSize) {
     return kWriteDWordSubModule | ES_DeviceDriver;
