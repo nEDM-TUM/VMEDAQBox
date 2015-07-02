@@ -1,7 +1,7 @@
 #ifndef _WrapFirmware_hh_
 #define _WrapFirmware_hh_
 #include <boost/fusion/include/adapt_struct.hpp>
-#include "CFirmwareLib.h"
+#include "Firmware.hh"
 #include <iostream>
 
 typedef DWORD DWORD_Four[4];
@@ -102,10 +102,4 @@ BOOST_FUSION_ADAPT_STRUCT(
   (DWORD, dwHBDataLostCounter)
 )
 
-namespace cascade {
-  void Print(const CFConfig& conf);
-  void Print(const CFDiagnostics& conf);
-  void Print(const CFStatistics& conf);
-  void Print(const CFSimulation& conf);
-}
 #endif

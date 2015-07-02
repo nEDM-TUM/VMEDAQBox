@@ -1,7 +1,7 @@
 #ifndef _WrapBoard_hh_
 #define _WrapBoard_hh_
 #include <boost/fusion/include/adapt_struct.hpp>
-#include "MBoardLib.h"
+#include "Board.hh"
 
 typedef DWORD ChannelArray[64];
 
@@ -52,8 +52,4 @@ BOOST_FUSION_ADAPT_STRUCT(
    (bool, bListModeFileBinary)
 )
 
-namespace cascade {
-  void Print(const MConfig& conf);
-  void Print(const HSetup& conf);
-}
 #endif
