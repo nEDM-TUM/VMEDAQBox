@@ -82,7 +82,7 @@ InitializeDevice::InitializeDevice()
   simulation.dwNoOfPauseCycles = 2;
 
   // j = 0 (low-word CIPix 0), 1 (high-word CIPix 0), 2 (low-word CIPix 1), etc.
-  DWORD j = 0;
+  DWORD j = 1;
   simulation.dwXSimulationPattern[0][j] = 0x00000001;
   simulation.dwXSimulationPattern[1][j] = 0x00000000;
   simulation.dwXSimulationPattern[2][j] = 0x80000000;
@@ -97,7 +97,7 @@ InitializeDevice::InitializeDevice()
   simulation.dwYSimulationPattern[2][j] = 0x80000000;
   //...
 
-  simulation.bSimulationChopper = false;
+  simulation.bSimulationChopper = true;
   simulation.dwChopperPeriod = 1000000; // 100ms
 
   PerformCheck(p_cf->ConfigureFirmwareSimulation( simulation ));
@@ -108,11 +108,11 @@ InitializeDevice::InitializeDevice()
   config.dwTypeOfReadout = ONE_D_STRIPES;
   config.dwTypeOfMeasurement = IMAGE;
   config.dwTypeOfMeasurement = TOF;
-  config.dwXResolution = 1;
+  config.dwXResolution = 0x40;
   config.dwYResolution = 1;
 
   // measurement time in terms of 100ns
-  config.ullTimeToCount = 1*10000000; // 1 sec
+  config.ullTimeToCount = 10*10000000; // 10 sec
 
   // prameters for TOF
   // dwelltime in terms of 100ns
@@ -122,15 +122,14 @@ InitializeDevice::InitializeDevice()
 
   PerformCheck(p_m->ConfigureMeasurement( config ));
 
-  _Status.bins.time = _MeasurementData.measurementConfig.dwNoOfTimeBins;
-  _Status.bins.x = _MeasurementData.measurementConfig.dwXResolution;
-  _Status.bins.y = _MeasurementData.measurementConfig.dwYResolution;
+  _Status.bins.time = config.dwNoOfTimeBins;
+  _Status.bins.x = config.dwXResolution;
+  _Status.bins.y = config.dwYResolution;
   _Status.Reset();
 
   PerformCheck(_DAQBox.InitDataBuffer(&_Status.data[0]));
   PerformCheck(_DAQBox.ClearSRAM());
   PerformCheck(_DAQBox.StartMeasurement());
-
 
 }
 
