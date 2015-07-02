@@ -1,11 +1,12 @@
 #include "InitializeDevice.hh"
-//#include "PrintStruct.hh"
 #include "ReturnCheck.hh"
 #include "Error.hh"
 #include <iostream>
 #include "universe_api.h"
 #include "StructConversion.hh"
 #include "BuildLambdaFunction.hh"
+#include "Board.hh"
+#include "Firmware.hh"
 
 
 namespace cascade {
@@ -28,6 +29,7 @@ InitializeDevice::InitializeDevice()
   std::cout << "0x" << std::hex << PerformCheck(_DAQBox.Init( 0x440000 ))
             << " : DAQBox Init" << std::endl;
   _MeasurementData.firmwareVersion = _DAQBox.GetFirmwareVersion();
+
   // reset DAQBox, if wanted or needed
   _DAQBox.Reset();
 
