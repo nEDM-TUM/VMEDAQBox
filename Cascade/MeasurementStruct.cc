@@ -44,3 +44,9 @@ boost::any CurrentStatus::encode()
   return cascade::EncAll<CurrentStatus>::encode(*this);
 }
 
+void CurrentStatus::Reset()
+{
+  data.resize(bins.x*bins.y*bins.time);
+  absTimeElapsed = 0;
+  memset(&data[0], 0, data.size()*sizeof(data[0]));
+}

@@ -36,8 +36,8 @@ struct CurrentStatus {
     bool      isMeasuring;
     ULONGLONG absTimeElapsed;
 
-    void          Reset() { data.resize(bins.x*bins.y*bins.time); absTimeElapsed = 0;}
-    boost::any    encode();
+    void       Reset();
+    boost::any encode();
 };
 
 #endif /*_MeasurementStruct_hh_ */
