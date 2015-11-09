@@ -7,7 +7,8 @@ layout: basic
 
 This software package describes software designed to interface with a VME
 DAQBox to readout
-[CDT Cascade detectors](http://n-cdt.com/products/cascade-detector-systems/).
+[CDT Cascade detectors](http://n-cdt.com/products/cascade-detector-systems/)
+and interface with [mgmarino/VMELinux](https://github.com/mgmarino/VMELinux).
 
 The C++ libraries interface with `libHardwareLib` (from CDT), allowing
 configuration and readout with JSON.  This is then exported to a web interface
