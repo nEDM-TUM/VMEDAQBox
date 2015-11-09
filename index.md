@@ -38,7 +38,7 @@ able to connect to the server: `http://ip_of_sbc:8080`.  Also, one can look at
 [this jsfiddle](https://jsfiddle.net/mgmarino/akrn5uqb/12/embedded/result/) to
 see an example how to build a web interface with display, etc.  Note that the
 jsfiddle also uses as default server 10.155.59.160, which should work if the
-SBC in cluster is running. 
+SBC in cluster is running.
 
 A full screen version of the example is
 [available here](http://jsfiddle.net/mgmarino/akrn5uqb/embedded/result/).
@@ -56,4 +56,21 @@ following structs are convertible/converted to/from JSON:
 * HSetup
 * ChannelList
 * MConfig
+
+### SBC Code
+
+Code to run the card is available on the CASCADE detectors SBC image
+[here]({{ site.url }}/System-Overview/subsystems/SBCs.html#backup-images).
+This script to start the program as a [runit
+daemon](http://smarden.org/runit/faq.html) looks simply like:
+
+{% highlight sh %}
+#!/bin/sh
+
+exec sudo -u daq \
+   /usr/bin/crossbar start \
+   --cbdir /home/daq/VMEDAQBox/.crossbar \
+   --logdir /home/daq/VMEDAQBox/.crossbar/log
+{% endhighlight %}
+
 
