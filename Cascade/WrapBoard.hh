@@ -1,6 +1,7 @@
-#include "DefineStruct.hh"
+#ifndef _WrapBoard_hh_
+#define _WrapBoard_hh_
 #include <boost/fusion/include/adapt_struct.hpp>
-#include "MBoardLib.h" 
+#include "Board.hh"
 
 typedef DWORD ChannelArray[64];
 
@@ -51,10 +52,4 @@ BOOST_FUSION_ADAPT_STRUCT(
    (bool, bListModeFileBinary)
 )
 
-void define_board()
-{
-  define_struct<HSetup>("h_setup");
-  define_struct<ChannelList>("channel_list");
-  define_struct<MConfig>("m_config");
-  ToPython<ChannelArray>();
-};
+#endif

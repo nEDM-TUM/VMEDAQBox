@@ -3,9 +3,12 @@
 #include <exception>
 
 
+namespace {
 const int32_t DL710_DataSize = 4;
 const int32_t DL710_Shift = 4;
 const uint32_t DL710_AddressMod = 0x39;
+const DWORD Version_Firmware = 0x33;
+};
 
 /*
  *
@@ -36,6 +39,14 @@ TUniverseCDAQBox::TUniverseCDAQBox() :
   if (!m_VMEDev) throw loc_Exception;
   m_ControlDevice = get_ctl_device();
   if (!m_ControlDevice) throw loc_Exception;
+
+  *pCDevice = "TUniverseCDAQBox";
+
+  ActualSetup.dwMeasurementCapabilityOfHardware = IMAGE | TOF;
+  ActualSetup.dwMaxNoOfOffsetBins = 0;
+  ActualSetup.dwMaxNoOfTimeBins = (0x1 << 23) - 1;    // 21 bit - 1
+  ActualSetup.dwMaxMemory = (0x1 << 23);              // 21 bit
+
 }
 
 //_____________________________________________________________________________
@@ -43,12 +54,12 @@ DWORD TUniverseCDAQBox::CallSysReset()
 {
   // Call Sys Reset on VME Bus
   uint32_t readDev;
-  if ( sizeof(readDev) != 
+  if ( sizeof(readDev) !=
         m_ControlDevice->Read((char*)&readDev, sizeof(readDev), 0x404 ) ) {
     return ES_DeviceDriver;
   }
   readDev |= 0x404000;
-  if ( sizeof(readDev) != 
+  if ( sizeof(readDev) !=
         m_ControlDevice->Write((char*)&readDev, sizeof(readDev), 0x404 ) ) {
     return ES_DeviceDriver;
   }
@@ -67,6 +78,41 @@ DWORD TUniverseCDAQBox::Init(DWORD vmeBaseAddress)
 {
   // Initialize, this just merely sets the VME base address.
   m_BaseAddress = vmeBaseAddress;
+
+  // read out the firmware version and generate 'sFirmwareVersion'
+  if ( DWORD error = GetFirmwareVersion( pFirmwareVersion, &dwFirmwareVersReg ) )
+  {
+      Close();
+      return error;
+
+  }
+
+  // Test, if firmware is correct.
+  if ( (dwFirmwareVersReg >> 24) != Version_Firmware )
+  {
+      pStream->str("");
+      *pStream << "\nThis CASCADE Hardwarelib is optimized for firmware " << std::hex <<
+                  ((Version_Firmware & 0xf0) >> 4) << "." << (Version_Firmware & 0xf) <<
+                  "!" << std::endl;
+      *pFirmwareVersion += pStream->str();
+
+      Close();
+      return kInit | EH_WrongFirmware;
+  }
+
+  HSetup h_setup;
+  if ( DWORD error = GetFirmwareSetup( pFirmwareSetup, &dwFirmwareSetupReg, &h_setup  ) )
+  {
+      Close();
+      return error;
+  }
+
+  if ( DWORD error = SetHardwareSetup( h_setup ) )
+  {
+      Close();
+      return error;
+  }
+  bInitialized = true;
   return EC_OK;
 }
 
@@ -83,7 +129,8 @@ DWORD TUniverseCDAQBox::Close()
 DWORD TUniverseCDAQBox::Reset()
 {
   // Reset the module
-  return WriteDWordSubModule(0xa, 0x0, 1);
+  WriteDWordSubModule(0xa, 0x0, 1);
+  return Init(m_BaseAddress);
 }
 
 
@@ -105,7 +152,7 @@ DWORD TUniverseCDAQBox::ReadDWordSubModule(
   uint32_t address = TranslateAddress(SubModuleAddr, offset);
   if (!m_VMEDev ||
        m_VMEDev->Read((char*)pData, DL710_DataSize, address) != DL710_DataSize) {
-    return ES_DeviceDriver;
+    return kReadDWordSubModule | ES_DeviceDriver;
   }
   return EC_OK;
 }
@@ -120,7 +167,7 @@ DWORD TUniverseCDAQBox::WriteDWordSubModule(
   uint32_t address = TranslateAddress(SubModuleAddr, offset);
   if (!m_VMEDev ||
        m_VMEDev->Write((char*)&pData, DL710_DataSize, address) != DL710_DataSize) {
-    return ES_DeviceDriver;
+    return kWriteDWordSubModule | ES_DeviceDriver;
   }
   return EC_OK;
 }
@@ -140,16 +187,22 @@ DWORD TUniverseCDAQBox::DMAReadDWordSubModule(
   uint32_t address = TranslateAddress(SubModuleAddr, offset);
 
   // Grab a DMA device
-  TUVMEDevice* dev = 
+  TUVMEDevice* dev =
     get_dma_device(address, DL710_AddressMod, DL710_DataSize, false);
-  if (!dev) return ES_DeviceDriver;
+  if (!dev) return kDMAReadDWordSubModule | ES_DeviceDriver;
   int32_t retVal = dev->Read((char*)pData,
                              (uint32_t)ReqNoOfDWords*DL710_DataSize,
                              0x0)/DL710_DataSize;
   // Be sure to release it back.
   release_dma_device();
 
-  return ((uint32_t)retVal != ReqNoOfDWords) ? ES_DeviceDriver : EC_OK;
+  return ((uint32_t)retVal != ReqNoOfDWords) ? (kDMAReadDWordSubModule | ES_DeviceDriver) : EC_OK;
+}
+
+//_____________________________________________________________________________
+DWORD TUniverseCDAQBox::StopMeasurement()
+{
+  return WriteDWordSubModule(0x60, 0x0, 0x2);
 }
 
 //_____________________________________________________________________________
@@ -157,11 +210,36 @@ bool TUniverseCDAQBox::GetClassAndMethod(
         const DWORD MethodId,
         std::string *pClassAndMethodName )
 {
-  // For remote calls
-  if (!pClassAndMethodName) return false;
-  *pClassAndMethodName = "TUniverseCDAQBox::" + GetMethodName(MethodId);
-  return true;
+    bClassIdAlreadyChecked = true;
+    if ( (MethodId & EC_Mask) == EC_UniverseCDAQBox )
+    {
+        *pClassAndMethodName = "TUniverseCDAQBox." + GetMethodName( MethodId ) + ": ";
+        bClassIdAlreadyChecked = false;
+        return true;
+    }
+
+    if ( CCFirmwareLib::GetClassAndMethod( MethodId, pClassAndMethodName ) )
+    {
+        *pClassAndMethodName = "TUniverseCDAQBox\n" + *pClassAndMethodName;
+        return true;
+    }
+
+    return false;
 }
 
+//_____________________________________________________________________________
+std::string TUniverseCDAQBox::GetMethodName( const DWORD MethodId )
+{
+    switch ( MethodId )
+    {
+        case kInit:                 return "Init()";
+        case kReset:                return "Reset()";
+        case kReadDWordSubModule:   return "ReadDWordSubModule()";
+        case kWriteDWordSubModule:  return "WriteDWordSubModule()";
+        case kDMAReadDWordSubModule:return "DMAReadDWordSubModule()";
+
+        default: return CErrorLib::GetMethodName( MethodId );
+    }
+}
 
 

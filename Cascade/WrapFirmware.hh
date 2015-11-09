@@ -1,6 +1,7 @@
-#include "DefineStruct.hh"
+#ifndef _WrapFirmware_hh_
+#define _WrapFirmware_hh_
 #include <boost/fusion/include/adapt_struct.hpp>
-#include "CFirmwareLib.h" 
+#include "Firmware.hh"
 #include <iostream>
 
 typedef DWORD DWORD_Four[4];
@@ -101,66 +102,4 @@ BOOST_FUSION_ADAPT_STRUCT(
   (DWORD, dwHBDataLostCounter)
 )
 
-struct Wrap_CFConfig
-{
-  Wrap_CFConfig ()
-  {
-    boost::python::converter::registry::push_back(
-          &convertible,
-          &construct,
-          boost::python::type_id<CFConfig>());
-    boost::python::to_python_converter<CFConfig, Wrap_CFConfig >();
-  }
-  static void* convertible(PyObject* obj_ptr)
-  {
-    return FromPython<CFConfig>::convertible(obj_ptr);
-  }
-
-  static void construct(
-    PyObject* obj_ptr,
-    boost::python::converter::rvalue_from_python_stage1_data* data)
-  {
-    
-    FromPython<CFConfig>::construct(obj_ptr, data);
-    CFConfig* conf = (CFConfig*) data->convertible;
-    boost::python::dict o = boost::python::extract<boost::python::dict>(obj_ptr);
-    if (conf->pAdrMaskList) {
-      *conf->pAdrMaskList = boost::python::extract<const char*>(o["pAdrMaskList"]);
-    }
-  }
-
-  static PyObject* convert(const CFConfig& s)
-  {
-    boost::python::dict o = boost::python::extract<boost::python::dict>(EncAll<CFConfig>::encode(s));
-    if (s.pAdrMaskList) {
-      o["pAdrMaskList"] = boost::python::str(s.pAdrMaskList->c_str());
-    } else {
-      o["pAdrMaskList"] = ""; 
-    }
-    return boost::python::incref(o.ptr());
-  }
-
-};
-
-template<>
-void define_struct_conversion<CFConfig>()
-{
-  std::cout << "Defining CFConfig" << std::endl;
-  Wrap_CFConfig();
-}
-
-void define_firmware()
-{
-  ToPython<DWORD_Four>();
-  ToPython<DWORD_Five>();
-  ToPython<DWORD_Ten>();
-  ToPython<DWORD_Sixteen>();
-  //Array_To_List<SimPattern>();
-  ToPython<SimPatternFour>();
-  ToPython<std_string_p>();
-
-  define_struct<CFDiagnostics>("cf_diagnostics");
-  define_struct<CFStatistics>("cf_stats");
-  define_struct<CFConfig>("cf_config");
-  define_struct<CFSimulation>("cf_simulation");
-};
+#endif

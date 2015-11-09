@@ -1,9 +1,11 @@
-#ifndef PrintStruct_hh
-#define PrintStruct_hh
+#ifndef _PrintStruct_hh_
+#define _PrintStruct_hh_
 
 #include "StructConversion.hh"
 
 #include <iostream>
+
+namespace cascade {
 namespace fusion = boost::fusion;
 namespace mpl=boost::mpl;
 
@@ -59,13 +61,13 @@ struct PrintStruct
 template <typename T> struct PrintAll_s
 {
   typedef
-    typename boost::mpl::eval_if< 
+    typename boost::mpl::eval_if<
         boost::mpl::is_sequence<T>,
         boost::mpl::identity< PrintStruct<T> >,
-        typename boost::mpl::eval_if< 
+        typename boost::mpl::eval_if<
            boost::is_array<T>,
            boost::mpl::identity< PrintArrayType<T> >,
-           PrintBaseType<T>   
+           PrintBaseType<T>
         >
     >
   ::type type;
@@ -73,6 +75,18 @@ template <typename T> struct PrintAll_s
 
 template <typename T> struct PrintAll : public PrintAll_s<T>::type { };
 
+template<typename T>
+void PrintOut(const T& obj)
+{
+  PrintAll<T>::print(obj);
+}
 
+#define DEFINEPRINT(atype) \
+void Print(const atype& t) \
+{                          \
+  PrintOut(t);             \
+}
+
+}
 #endif
 
